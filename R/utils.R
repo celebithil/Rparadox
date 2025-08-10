@@ -1,9 +1,5 @@
 # Внутренняя (не экспортируемая) функция для регистронезависимого поиска .mb файла
 find_blob_file <- function(db_path) {
-  if (!is.character(db_path) || length(db_path) != 1 || is.na(db_path)) {
-    return(NULL)
-  }
-  
   # Получаем директорию и имя файла без расширения
   dir_name <- dirname(db_path)
   base_name <- tools::file_path_sans_ext(basename(db_path))

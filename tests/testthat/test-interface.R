@@ -3,7 +3,6 @@ library(Rparadox)
 
 # Путь к тестовой базе данных. Пропускаем тесты, если ее нет.
 db_path <- system.file("extdata", "country.db", package = "Rparadox")
-skip_if_not(file.exists(db_path), "Test database 'country.db' not found in inst/extdata.")
 
 test_that("pxlib_open_file and pxlib_close_file work correctly", {
   # 1. Открытие корректного файла
@@ -38,6 +37,12 @@ test_that("pxlib_open_file handles errors", {
   expect_error(
     pxlib_open_file(123), 
     "File path must be a single, non-NA character string."
+  )
+  
+  # Неверный тип кодировки. Сообщение об ошибке должно ТОЧНО совпадать.
+  expect_error(
+    pxlib_open_file(db_path, encoding = 866), 
+    "Encoding must be NULL or a single, non-NA character string."
   )
 })
 
