@@ -3,12 +3,11 @@
  * @brief R interface to the pxlib library for reading Paradox database files.
  *
  * This file contains C functions that are callable from R (.Call entry points)
- * to open, read, and close Paradox (.DB) files, including associated .MB BLOB files.
- * It handles the conversion of Paradox data types to their corresponding R SEXP types,
- * ensuring robust and efficient data retrieval. The design relies on creating native
- * R data structures (vectors) for each column and populating them record by record.
- * A key feature is the direct creation of lists (VECSXP) for binary/BLOB columns,
- * which simplifies post-processing on the R side.
+ * to open, read, and close Paradox (.DB) files. It handles the conversion of
+ * Paradox data types to their corresponding R SEXP types, including character
+ * encoding conversion and robust handling of binary (BLOB) data. The design
+ * relies on creating native R data structures for each column and populating
+ * them record by record.
  */
 
 #include <R.h>          // Standard R header for C extensions
@@ -20,7 +19,6 @@
 #include "paradox.h"    // pxlib main header, contains pxdoc_t, pxval_t, pxfield_t etc.
 
 // Forward declarations for static helper functions.
-// These functions are internal to this file and not exposed to R directly.
 static void pxdoc_finalizer(SEXP extptr);
 static pxdoc_t* check_pxdoc_ptr(SEXP pxdoc_extptr);
 static char* re_encode_string_to_utf8(pxdoc_t* pxdoc, const char* input_str);
@@ -29,10 +27,9 @@ static SEXP px_to_sexp(pxdoc_t* pxdoc, pxval_t* val, int px_ftype);
 /**
  * @brief Finalizer for the pxdoc_t external pointer.
  *
- * This function is registered with R's garbage collector. It is called automatically
- * when the SEXP object wrapping the `pxdoc_t` pointer is no longer reachable.
- * Its purpose is to ensure that `PX_delete()` is called to properly free all
- * resources associated with the pxlib document, preventing memory leaks.
+ * Registered with R's garbage collector, this function ensures that `PX_delete()`
+ * is called to properly free all resources associated with the pxlib document,
+ * preventing memory leaks when the R object is garbage collected.
  *
  * @param extptr The R external pointer SEXP that holds the `pxdoc_t` address.
  */
@@ -44,7 +41,6 @@ static void pxdoc_finalizer(SEXP extptr) {
   
   if (pxdoc != NULL) {
     PX_delete(pxdoc);
-    // Clear the external pointer's address to signal that it's no longer valid.
     R_ClearExternalPtr(extptr);
   }
 }
@@ -52,13 +48,11 @@ static void pxdoc_finalizer(SEXP extptr) {
 /**
  * @brief Explicitly closes a Paradox file and releases associated resources.
  *
- * This function provides a way for the R user to explicitly close a Paradox file
- * and free the memory associated with the `pxdoc_t` object before R's garbage
+ * Allows the R user to explicitly close a Paradox file before R's garbage
  * collector finalizes it. It calls `PX_delete()` and clears the external pointer.
  *
- * @param pxdoc_extptr An R external pointer of class 'pxdoc_t' representing an
- * open Paradox database.
- * @return `R_NilValue`, invisibly, indicating success.
+ * @param pxdoc_extptr An R external pointer of class 'pxdoc_t'.
+ * @return `R_NilValue`, invisibly.
  */
 SEXP pxlib_close_file_c(SEXP pxdoc_extptr) {
   pxdoc_t* pxdoc = check_pxdoc_ptr(pxdoc_extptr);
@@ -70,18 +64,18 @@ SEXP pxlib_close_file_c(SEXP pxdoc_extptr) {
   return R_NilValue;
 }
 
+
 /**
  * @brief Opens a Paradox file and returns an external pointer to the pxdoc_t struct.
  *
- * Initiates a connection to a Paradox database file. It allocates a `pxdoc_t`
- * object, opens the specified file, and configures pxlib for UTF-8 target
- * encoding if a codepage is detected.
+ * Initiates a connection to a Paradox database. It allows overriding the source
+ * character encoding if specified by the user.
  *
  * @param filename_sexp An R character string SEXP containing the path to the .DB file.
- * @return An R external pointer of class "pxdoc_t" on success. This pointer is
- * used in subsequent `pxlib` functions. Returns `R_NilValue` on failure.
+ * @param encoding_sexp An R character string SEXP for the source encoding, or R_NilValue.
+ * @return An R external pointer of class "pxdoc_t" on success, or `R_NilValue` on failure.
  */
-SEXP pxlib_open_file_c(SEXP filename_sexp) {
+SEXP pxlib_open_file_c(SEXP filename_sexp, SEXP encoding_sexp) {
   if (TYPEOF(filename_sexp) != STRSXP || LENGTH(filename_sexp) != 1 || STRING_ELT(filename_sexp, 0) == NA_STRING) {
     Rf_error("Filename must be a single, non-NA character string.");
   }
@@ -98,36 +92,57 @@ SEXP pxlib_open_file_c(SEXP filename_sexp) {
     return R_NilValue;
   }
   
-  // If a DOS codepage is defined, set pxlib's target encoding to UTF-8
-  // to ensure character data is correctly converted.
-  if (pxdoc->px_head->px_doscodepage > 0) {
-    PX_set_targetencoding(pxdoc, "UTF-8");
+  // --- Encoding Handling Logic ---
+  const char* source_encoding_str = NULL;
+  char codepage_buffer[30];
+  
+  // 1. Check for user-provided encoding override.
+  if (TYPEOF(encoding_sexp) == STRSXP && LENGTH(encoding_sexp) == 1) {
+    source_encoding_str = CHAR(STRING_ELT(encoding_sexp, 0));
   }
   
-  // Create an R external pointer to hold the pxdoc_t object.
-  // PROTECT ensures the SEXP is not garbage collected prematurely.
+  // 2. If no override, try to get codepage from file header.
+  if (source_encoding_str == NULL && pxdoc->px_head->px_doscodepage > 0) {
+    sprintf(codepage_buffer, "CP%d", pxdoc->px_head->px_doscodepage);
+    source_encoding_str = codepage_buffer;
+  }
+  
+  // 3. If a source encoding is determined, set up iconv for UTF-8 conversion.
+  if (source_encoding_str != NULL) {
+    const char* target_encoding = "UTF-8";
+    
+    if (pxdoc->out_iconvcd != (iconv_t)(-1)) {
+      iconv_close(pxdoc->out_iconvcd);
+    }
+    pxdoc->out_iconvcd = iconv_open(target_encoding, source_encoding_str);
+    
+    if (pxdoc->out_iconvcd == (iconv_t)(-1)) {
+      Rf_warning("Failed to set up encoding conversion from '%s' to '%s'.",
+                 source_encoding_str, target_encoding);
+    } else {
+      if (pxdoc->targetencoding) pxdoc->free(pxdoc, pxdoc->targetencoding);
+      pxdoc->targetencoding = PX_strdup(pxdoc, target_encoding);
+    }
+  }
+  // --- End of Encoding Logic ---
+  
   SEXP pxdoc_extptr = PROTECT(R_MakeExternalPtr(pxdoc, R_NilValue, R_NilValue));
-  // Register the finalizer to ensure resources are freed when R garbage collects the object.
   R_RegisterCFinalizerEx(pxdoc_extptr, pxdoc_finalizer, TRUE);
   
-  // Set the S3 class for method dispatch in R.
   SEXP class_attr = PROTECT(allocVector(STRSXP, 2));
   SET_STRING_ELT(class_attr, 0, mkChar("pxdoc_t"));
   SET_STRING_ELT(class_attr, 1, mkChar("externalptr"));
   setAttrib(pxdoc_extptr, R_ClassSymbol, class_attr);
   
-  UNPROTECT(2); // Unprotect pxdoc_extptr and class_attr.
+  UNPROTECT(2);
   return pxdoc_extptr;
 }
 
 /**
  * @brief Associates a BLOB file (.MB) with an open Paradox database.
  *
- * Paradox databases can store BLOB (Binary Large Object) data in a separate
- * .MB file. This function tells pxlib where to find this associated BLOB file.
- *
  * @param pxdoc_extptr The R external pointer to the open Paradox database.
- * @param blob_filename_sexp An R character string SEXP containing the path to the .MB file.
+ * @param blob_filename_sexp An R character string SEXP with the path to the .MB file.
  * @return A logical SEXP (`TRUE` on success, `FALSE` on failure).
  */
 SEXP pxlib_set_blob_file_c(SEXP pxdoc_extptr, SEXP blob_filename_sexp) {
@@ -147,24 +162,14 @@ SEXP pxlib_set_blob_file_c(SEXP pxdoc_extptr, SEXP blob_filename_sexp) {
 }
 
 /**
- * @brief Reads all records from an open Paradox file and returns them as an R list of vectors.
+ * @brief Reads all records from an open Paradox file into an R list of vectors.
  *
- * This is the core data retrieval function. It queries the Paradox file's structure,
- * allocates R vectors of appropriate types for each column, and then iterates through
- * each record to populate them. Column names are set, and special R classes (e.g.,
- * "Date", "POSIXct") are applied where appropriate.
- *
- * A key aspect of the implementation is how BLOBs are handled. Binary Paradox
- * types (BLOB, OLE, etc.) are mapped to a `VECSXP` (an R list), where each element
- * of the list will contain a `RAWSXP` (raw vector) for a single record's binary data.
- * The R-side wrapper function (`pxlib_get_data`) identifies these columns by checking
- * `is.list()` and converts them to `blob` objects. This avoids passing redundant
- * type information between C and R.
+ * This is the core data retrieval function. It allocates R vectors for each column,
+ * iterates through records to populate them, and sets column names and classes.
  *
  * @param pxdoc_extptr An R external pointer to the open Paradox database.
- * @return An R list (`VECSXP`), where each element is a vector representing a column.
- * The list elements are named after the Paradox field names. Returns `R_NilValue`
- * if the file contains no records.
+ * @return An R list (`VECSXP`), with named elements representing columns.
+ * Returns `R_NilValue` if the file is empty.
  */
 SEXP pxlib_get_data_c(SEXP pxdoc_extptr) {
   pxdoc_t* pxdoc = check_pxdoc_ptr(pxdoc_extptr);
@@ -181,55 +186,24 @@ SEXP pxlib_get_data_c(SEXP pxdoc_extptr) {
     Rf_error("Could not retrieve field definitions from Paradox file.");
   }
   
-  // data_list will hold all the column vectors. It must be protected from GC.
   SEXP data_list = PROTECT(allocVector(VECSXP, num_fields));
   
   // --- Step 1: Allocate R vectors (columns) based on Paradox field types ---
   for (int j = 0; j < num_fields; j++) {
     SEXP column;
-    
-    // A switch statement determines the appropriate R vector type (SEXP) for each Paradox field.
     switch(fields[j].px_ftype) {
-    // Binary types are mapped to a VECSXP (list), which will hold raw vectors.
-    case pxfBLOb:
-    case pxfOLE:
-    case pxfGraphic:
-    case pxfBytes:
-      column = PROTECT(allocVector(VECSXP, num_records));
-      break;
-      
-      // Integer types.
-    case pxfShort:
-    case pxfLong:
-    case pxfAutoInc:
-      column = PROTECT(allocVector(INTSXP, num_records));
-      break;
-      
-      // Floating-point types. Dates and times are also stored as doubles.
-    case pxfNumber:
-    case pxfCurrency:
-    case pxfDate:
-    case pxfTime:
-    case pxfTimestamp:
-      column = PROTECT(allocVector(REALSXP, num_records));
-      break;
-      
-      // Logical type.
+    case pxfBLOb: case pxfOLE: case pxfGraphic: case pxfBytes:
+      column = PROTECT(allocVector(VECSXP, num_records)); break;
+    case pxfShort: case pxfLong: case pxfAutoInc:
+      column = PROTECT(allocVector(INTSXP, num_records)); break;
+    case pxfNumber: case pxfCurrency: case pxfDate: case pxfTime: case pxfTimestamp:
+      column = PROTECT(allocVector(REALSXP, num_records)); break;
     case pxfLogical:
-      column = PROTECT(allocVector(LGLSXP, num_records));
-      break;
-      
-      // Text types and unhandled types default to character strings.
-    case pxfAlpha:
-    case pxfMemoBLOb:
-    case pxfFmtMemoBLOb:
-    case pxfBCD: // BCD is returned as a string by pxlib.
-    default:
-      column = PROTECT(allocVector(STRSXP, num_records));
-      break;
+      column = PROTECT(allocVector(LGLSXP, num_records)); break;
+    case pxfAlpha: case pxfMemoBLOb: case pxfFmtMemoBLOb: case pxfBCD: default:
+      column = PROTECT(allocVector(STRSXP, num_records)); break;
     }
     SET_VECTOR_ELT(data_list, j, column);
-    // The column is now part of data_list, which is protected, so we can unprotect the 'column' variable.
     UNPROTECT(1);
   }
   
@@ -242,49 +216,30 @@ SEXP pxlib_get_data_c(SEXP pxdoc_extptr) {
     }
     
     for (int j = 0; j < num_fields; j++) {
-      // Convert the Paradox value to an R SEXP.
       SEXP r_val = px_to_sexp(pxdoc, record_values[j], fields[j].px_ftype);
       SEXP column = VECTOR_ELT(data_list, j);
       
-      // Place the converted value into the correct position in the column vector.
       switch(TYPEOF(column)) {
-      case VECSXP: // For BLOBs (list of raw vectors)
-        SET_VECTOR_ELT(column, i, r_val);
-        break;
-      case STRSXP: // For character strings
-        SET_STRING_ELT(column, i, Rf_isNull(r_val) ? NA_STRING : r_val);
-        break;
-      case INTSXP: // For integers
-        INTEGER(column)[i] = Rf_isNull(r_val) ? NA_INTEGER : asInteger(r_val);
-        break;
-      case REALSXP: // For doubles (numeric, date, time)
-        REAL(column)[i] = Rf_isNull(r_val) ? NA_REAL : asReal(r_val);
-        break;
-      case LGLSXP: // For logicals
-        LOGICAL(column)[i] = Rf_isNull(r_val) ? NA_LOGICAL : asLogical(r_val);
-        break;
-      default:
-        // This case should not be reached with the current logic.
-        Rf_warning("Unhandled R SEXP type for column %d, record %d.", j + 1, i + 1);
-      break;
+      case VECSXP:  SET_VECTOR_ELT(column, i, r_val); break;
+      case STRSXP:  SET_STRING_ELT(column, i, Rf_isNull(r_val) ? NA_STRING : r_val); break;
+      case INTSXP:  INTEGER(column)[i] = Rf_isNull(r_val) ? NA_INTEGER : asInteger(r_val); break;
+      case REALSXP: REAL(column)[i] = Rf_isNull(r_val) ? NA_REAL : asReal(r_val); break;
+      case LGLSXP:  LOGICAL(column)[i] = Rf_isNull(r_val) ? NA_LOGICAL : asLogical(r_val); break;
+      default:      Rf_warning("Unhandled R SEXP type for column %d, record %d.", j + 1, i + 1); break;
       }
-      // Free the memory for the individual Paradox value.
       FREE_PXVAL(pxdoc, record_values[j]);
     }
-    // Free the memory for the record's value array.
     pxdoc->free(pxdoc, record_values);
   }
   
   // --- Step 3: Set column names for the data_list ---
   SEXP col_names = PROTECT(allocVector(STRSXP, num_fields));
   for (int j = 0; j < num_fields; j++) {
-    // Re-encode field names from the database's codepage to UTF-8 for R.
     char* utf8_fname = re_encode_string_to_utf8(pxdoc, fields[j].px_fname);
     if (utf8_fname != NULL) {
       SET_STRING_ELT(col_names, j, mkCharCE(utf8_fname, CE_UTF8));
       free(utf8_fname);
     } else {
-      // Fallback to the original name if re-encoding is not needed or fails.
       SET_STRING_ELT(col_names, j, mkChar(fields[j].px_fname));
     }
   }
@@ -315,9 +270,7 @@ SEXP pxlib_get_data_c(SEXP pxdoc_extptr) {
       setAttrib(column, install("tzone"), mkString("UTC"));
       break;
     }
-    default:
-      // No special class needed for other types.
-      break;
+    default: break;
     }
   }
   
@@ -328,13 +281,9 @@ SEXP pxlib_get_data_c(SEXP pxdoc_extptr) {
 /**
  * @brief Converts a single pxlib value (pxval_t) to a scalar R SEXP.
  *
- * This helper function takes a `pxval_t` structure and converts it into an
- * equivalent scalar R SEXP (e.g., character, integer, double, raw vector).
- * It handles NULL values from Paradox by returning `R_NilValue`.
- *
- * @param pxdoc Pointer to the pxdoc_t object for context (e.g., string encoding).
+ * @param pxdoc Pointer to the pxdoc_t object for context (e.g., encoding).
  * @param val Pointer to the pxval_t structure containing the Paradox value.
- * @param px_ftype The Paradox field type, used for specific conversion logic.
+ * @param px_ftype The Paradox field type.
  * @return A scalar R SEXP representing the value. Returns `R_NilValue` for NULLs.
  */
 static SEXP px_to_sexp(pxdoc_t* pxdoc, pxval_t* val, int px_ftype) {
@@ -343,23 +292,22 @@ static SEXP px_to_sexp(pxdoc_t* pxdoc, pxval_t* val, int px_ftype) {
   }
   
   switch(px_ftype) {
-  // --- Text-like Types ---
   case pxfAlpha:
-    if (val->isnull) return R_NilValue;
     return mkCharCE(val->value.str.val, CE_UTF8);
-  case pxfBCD: // BCDs are represented as strings by pxlib
-    if (val->isnull) return R_NilValue;
-    // pxlib can represent BCD NULLs as a string of '?'
+    
+  case pxfBCD:
     if (strcmp(val->value.str.val, "-??????????????????????????.??????") == 0) {
       return R_NilValue;
     }
     return mkChar(val->value.str.val);
+    
   case pxfMemoBLOb:
   case pxfFmtMemoBLOb:
-    if (val->isnull) return R_NilValue;
-    // `pxlib` не гарантирует, что строка из Memo-поля будет завершена нулевым символом.
-    // Чтобы безопасно передать ее в R, мы создаем временный буфер,
-    // копируем в него данные и вручную добавляем нулевой символ в конец.
+  {
+    if (val->value.str.val == NULL) return R_NilValue;
+    
+    // pxlib does not guarantee null-termination for memo fields. To pass them
+    // safely to C string functions, we create a temporary, null-terminated buffer.
     int len = val->value.str.len;
     char* safe_buffer = (char*) malloc(len + 1);
     if (safe_buffer == NULL) {
@@ -368,28 +316,25 @@ static SEXP px_to_sexp(pxdoc_t* pxdoc, pxval_t* val, int px_ftype) {
     }
     
     memcpy(safe_buffer, val->value.str.val, len);
-    safe_buffer[len] = '\0'; // Гарантируем наличие нулевого символа
+    safe_buffer[len] = '\0'; // Ensure null-termination
     
+    // Attempt to re-encode the string to UTF-8
     SEXP r_string;
     char* utf8_string = re_encode_string_to_utf8(pxdoc, safe_buffer);
     if (utf8_string != NULL) {
       r_string = mkCharCE(utf8_string, CE_UTF8);
       free(utf8_string);
     } else {
-      // Fallback to the original name if re-encoding is not needed or fails.
+      // Fallback: create a native-encoded string if re-encoding fails or is not needed.
       r_string = mkChar(safe_buffer);
     }
     
-    free(safe_buffer); // Освобождаем временный буфер
+    free(safe_buffer); // Free the temporary buffer
     return r_string;
-    // --- True Binary Types ---
-  case pxfBLOb:
-  case pxfGraphic:
-  case pxfBytes:
-  case pxfOLE:
-    // Create an R raw vector (RAWSXP). This will be placed into the list (VECSXP)
-    // for the corresponding column.
-    if (val->isnull || val->value.str.len == 0) {
+  }
+    
+  case pxfBLOb: case pxfGraphic: case pxfBytes: case pxfOLE:
+    if (val->value.str.len == 0) {
       return R_NilValue;
     }
     SEXP raw_vec = PROTECT(allocVector(RAWSXP, val->value.str.len));
@@ -397,33 +342,29 @@ static SEXP px_to_sexp(pxdoc_t* pxdoc, pxval_t* val, int px_ftype) {
     UNPROTECT(1);
     return raw_vec;
     
-    // --- Other Types (Numeric, Logical, Date/Time) ---
-  case pxfShort:
-  case pxfLong:
-  case pxfAutoInc:
+  case pxfShort: case pxfLong: case pxfAutoInc:
     return ScalarInteger(val->value.lval);
-  case pxfNumber:
-  case pxfCurrency:
+    
+  case pxfNumber: case pxfCurrency:
     return ScalarReal(val->value.dval);
+    
   case pxfLogical:
     return ScalarLogical(val->value.lval);
+    
   case pxfDate:
-    // Paradox dates are days since 1899-12-30. R dates are days since 1970-01-01.
-    // Conversion: Paradox_Date - R_Epoch_Offset.
-    if (val->value.lval <= 0) return R_NilValue; // Handle invalid/null dates.
+    if (val->value.lval <= 0) return R_NilValue;
     return ScalarReal((double)val->value.lval - 719163.0);
+    
   case pxfTime:
-    // Paradox times are milliseconds since midnight. R 'hms' uses seconds.
     if (val->value.lval < 0) return R_NilValue;
     return ScalarReal((double)val->value.lval / 1000.0);
+    
   case pxfTimestamp: {
-    // Paradox timestamps are milliseconds since 1899-12-30. R POSIXct are seconds since 1970-01-01 UTC.
-    // Conversion: Paradox_Date - R_Epoch_Offset.
-    // R_Epoch_Offset = days between 1899-12-30 and 1970-01-01 = 719163 days.
     double paradox_seconds = val->value.dval / 1000.0;
-    if (val->value.dval == 0.0 || paradox_seconds < 0) return R_NilValue; // Handle invalid/null timestamps.
+    if (val->value.dval == 0.0 || paradox_seconds < 0) return R_NilValue;
     return ScalarReal(paradox_seconds - (719163.0 * 86400.0));
   }
+    
   default:
     Rf_warning("Unhandled Paradox field type encountered: %d. Returning R_NilValue.", px_ftype);
     return R_NilValue;
@@ -431,26 +372,25 @@ static SEXP px_to_sexp(pxdoc_t* pxdoc, pxval_t* val, int px_ftype) {
 }
 
 /**
- * @brief Re-encodes a string from pxlib's internal encoding to UTF-8.
+ * @brief Re-encodes a string from the file's encoding to UTF-8 using iconv.
  *
- * This helper function uses `iconv` to convert character strings received from
- * pxlib into UTF-8, which is standard for R. The caller is responsible for
- * freeing the returned `char*` pointer.
+ * The caller is responsible for freeing the returned `char*` pointer.
  *
  * @param pxdoc Pointer to the pxdoc_t object, which contains the iconv context.
  * @param input_str The input C string to be re-encoded.
- * @return A newly allocated, UTF-8 encoded C string. Returns `NULL` if `iconv`
- * is not used, input is NULL, or memory allocation fails.
+ * @return A newly allocated, UTF-8 encoded C string, or `NULL` on failure or if
+ * re-encoding is not configured.
  */
 static char* re_encode_string_to_utf8(pxdoc_t* pxdoc, const char* input_str) {
   if (pxdoc->targetencoding == NULL || input_str == NULL || input_str[0] == '\0') {
     return NULL;
   }
-
+  
   size_t input_len = strlen(input_str);
   if (input_len == 0) return NULL;
   
-  size_t output_len = input_len * 2 + 1; // Heuristic: allocate 2x input length for safety
+  // Heuristic: allocate 2x input length for safety during conversion (e.g., ASCII to UTF-16).
+  size_t output_len = input_len * 2 + 1;
   char* output_buf = (char*) malloc(output_len);
   if (output_buf == NULL) {
     Rf_warning("Memory allocation failed for string re-encoding.");
@@ -469,11 +409,12 @@ static char* re_encode_string_to_utf8(pxdoc_t* pxdoc, const char* input_str) {
   
   if (result == (size_t)-1) {
     free(output_buf);
-    Rf_warning("String re-encoding with iconv failed.");
+    // This warning can be noisy if some strings fail, so it's commented out.
+    // Rf_warning("String re-encoding with iconv failed.");
     return NULL;
   }
   
-  // Optional: reallocate to the exact size to save memory.
+  // Reallocate to the exact size to save memory.
   char* final_buf = (char*) realloc(output_buf, strlen(output_buf) + 1);
   return (final_buf == NULL) ? output_buf : final_buf; // Return original if realloc fails
 }
@@ -481,8 +422,7 @@ static char* re_encode_string_to_utf8(pxdoc_t* pxdoc, const char* input_str) {
 /**
  * @brief Validates that a SEXP is a valid, non-NULL external pointer to pxdoc_t.
  *
- * This helper function is used by other C functions to ensure that the `pxdoc_extptr`
- * argument from R is a valid, active connection. It throws an R error if not.
+ * Throws an R error if the pointer is invalid.
  *
  * @param pxdoc_extptr The R external pointer SEXP to be validated.
  * @return A `pxdoc_t*` pointer if validation passes.
