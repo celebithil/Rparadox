@@ -4,9 +4,9 @@
 \name{Rparadox-package}
 \alias{Rparadox}
 \alias{Rparadox-package}
-\title{Rparadox: What the Package Does (One Line, Title Case)}
+\title{Rparadox: R Bindings for the Paradox Database Library}
 \description{
-What the package does (one paragraph).
+Description: Provides an interface to the 'pxlib' C library for reading data from Paradox database files. This package allows users to import data from .db and .mb files into R data structures like tibbles, supporting various Paradox data types.
 }
 \author{
 \strong{Maintainer}: Daniil Popov \email{popov.daniil@gmail.com}
