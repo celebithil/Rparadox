@@ -2,19 +2,49 @@
 % Please edit documentation in R/pxlib_open_file.R
 \name{pxlib_open_file}
 \alias{pxlib_open_file}
-\title{Open a Paradox database file}
+\title{Open a Paradox Database File}
 \usage{
-pxlib_open_file(path)
+pxlib_open_file(path, encoding = NULL)
 }
 \arguments{
 \item{path}{A character string specifying the path to the Paradox (.db) file.}
+
+\item{encoding}{An optional character string specifying the input encoding of
+the data (e.g., "cp866", "cp1252"). If \code{NULL} (the default), the encoding
+is determined from the file header.}
 }
 \value{
 An external pointer of class 'pxdoc_t' if the file is successfully
-opened, or \code{NULL} if an error occurs.
+opened, or \code{NULL} if an error occurs (e.g., file not found).
 }
 \description{
-This function opens a Paradox database file. It will also automatically
-search for and attach an associated BLOB file (.mb) in a case-insensitive
-manner if one exists in the same directory.
+Opens a Paradox database (.db) file and prepares it for reading. This function
+serves as the entry point for interacting with a Paradox database.
+}
+\details{
+This function initializes a connection to a Paradox file via the underlying C library.
+It automatically performs two key setup tasks:
+\enumerate{
+\item \strong{Encoding Override:} It allows the user to specify the character encoding of the
+source file via the \code{encoding} parameter. This is crucial for legacy files
+where the encoding stored in the header may be incorrect. If \code{encoding} is
+\code{NULL}, the function will attempt to use the codepage from the file header.
+\item \strong{BLOB File Attachment:} It automatically searches for an associated BLOB file
+(with a \code{.mb} extension, case-insensitively) in the same directory and,
+if found, attaches it to the database handle.
+}
+}
+\examples{
+\dontrun{
+  # Example 1: Open a file using the encoding from its header
+  db_path <- system.file("extdata", "biolife.db", package = "Rparadox")
+  pxdoc <- pxlib_open_file(db_path)
+  if (!is.null(pxdoc)) {
+    # ... read data ...
+    pxlib_close_file(pxdoc)
+  }
+
+  # Example 2: Open a file, overriding its encoding to CP866
+  # pxdoc <- pxlib_open_file("path/to/my/file.db", encoding = "cp866")
+}
 }
