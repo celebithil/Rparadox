@@ -1,6 +1,6 @@
 Package: Rparadox
 Title: R Bindings for the Paradox Database Library
-Version: 0.1.6.1.8
+Version: 0.2718
 Authors@R: 
     person("Daniil", "Popov", , "popov.daniil@gmail.com", role = c("aut", "cre"))
 Description: Description: Provides an interface to the 'pxlib' C library for reading data from Paradox database files.

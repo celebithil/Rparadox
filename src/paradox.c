@@ -4300,159 +4300,158 @@ PX_make_timestamp(pxdoc_t *pxdoc, int year, int month, int day, int hour, int mi
  */
 PXLIB_API char * PXLIB_CALL
 PX_timestamp2string(pxdoc_t *pxdoc, double value, const char *format) {
-	char tmp_buff[32], *str;
-	int i, size=0;
-	struct tm ta;
-	int secs, days;
-
-	value = value / 1000.0;
-	days = (int) (value / 86400);
-	secs = (int) fmod(value, 86400);
-	PX_SdnToGregorian(days+1721425, &ta.tm_year, &ta.tm_mon, &ta.tm_mday);
-	ta.tm_mon--;
-	ta.tm_hour = secs/3600;
-	ta.tm_min = secs/60%60;
-	ta.tm_sec = secs%60;
-
-	for (i = 0; i < strlen(format); i++) {
-		switch(format[i]) {
-			case 'Y':       /* year, numeric, 4 digits */
-				size += 6;  /* Allow years to be 6 digits long */
-				break;
-			case 'y':		/* year, numeric, 2 digits */
-			case 'm':		/* month, numeric */
-			case 'n':		/* month, numeric, no leading zeroes */
-			case 'd':		/* day of the month, numeric */
-			case 'j':		/* day of the month, numeric, no leading zeros */
-			case 'H':		/* hour, numeric, 24 hour format */
-			case 'h':		/* hour, numeric, 12 hour format */
-			case 'G':		/* hour, numeric, 24 hour format, no leading zeroes */
-			case 'g':		/* hour, numeric, 12 hour format, no leading zeroes */
-			case 'i':		/* minutes, numeric */
-			case 's':		/* seconds, numeric */
-			case 'A':		/* AM/PM */
-			case 'a':		/* am/pm */
-			case 'S':		/* standard english suffix for the day of the month (e.g. 3rd, 2nd, etc) */
-				size += 2;
-				break;
-			case 'L':		/* boolean for leap year */
-				size++;
-				break;
-			default:
-				size++;
-				break;
-
-		}
-	}
-	if(NULL == (str = pxdoc->malloc(pxdoc, size+1, _("Allocate memory for timestamp string.")))) {
-		px_error(pxdoc, PX_MemoryError, _("Could not allocate memory for timestamp string."));
-		return NULL;
-	}
-	str[0] = '\0';
-	for (i = 0; i < strlen(format); i++) {
-		switch(format[i]) {
-			case '\\':
-				if (i < strlen(format) - 1) {
-					char ch[2];
-					ch[0] = format[++i];
-					ch[1] = '\0';
-					strcat(str, ch);
-				}
-			case 'Y':		/* year, numeric, 4 digits */
-				sprintf(tmp_buff, "%04d", ta.tm_year);  /* SAFE */
-				strcat(str, tmp_buff);
-				break;
-			case 'z':		/* day (of the year) */
-				sprintf(tmp_buff, "%d", ta.tm_yday);  /* SAFE */
-				strcat(str, tmp_buff);
-				break;
-			case 'y':		/* year, numeric, 2 digits */
-				sprintf(tmp_buff, "%02d", ((ta.tm_year)%100));  /* SAFE */
-				strcat(str, tmp_buff);
-				break;
-			case 'm':		/* month, numeric */
-				sprintf(tmp_buff, "%02d", ta.tm_mon + 1);  /* SAFE */
-				strcat(str, tmp_buff);
-				break;
-			case 'n':      /* month, numeric, no leading zeros */
-				sprintf(tmp_buff, "%d", ta.tm_mon + 1);  /* SAFE */
-				strcat(str, tmp_buff);
-				break;
-			case 'd':		/* day of the month, numeric */
-				sprintf(tmp_buff, "%02d", ta.tm_mday);  /* SAFE */
-				strcat(str, tmp_buff);
-				break;
-			case 'j':
-				sprintf(tmp_buff, "%d", ta.tm_mday); /* SAFE */
-				strcat(str, tmp_buff);
-				break;
-			case 'H':		/* hour, numeric, 24 hour format */
-				sprintf(tmp_buff, "%02d", ta.tm_hour);  /* SAFE */
-				strcat(str, tmp_buff);
-				break;
-			case 'h': {		/* hour, numeric, 12 hour format */
-				int h = ta.tm_hour % 12; if (h==0) h = 12;
-				sprintf(tmp_buff, "%02d", h);  /* SAFE */
-				strcat(str, tmp_buff);
-				break;
-			}
-			case 'G':      /* hour, numeric, 24 hour format, no leading zeros */
-				sprintf(tmp_buff, "%d", ta.tm_hour);  /* SAFE */
-				strcat(str, tmp_buff);
-				break;
-			case 'g': {     /* hour, numeric, 12 hour format, no leading zeros */
-				int h = ta.tm_hour % 12; if (h==0) h = 12;
-				sprintf(tmp_buff, "%d", h);  /* SAFE */
-				strcat(str, tmp_buff);
-				break;
-			}
-			case 'i':		/* minutes, numeric */
-				sprintf(tmp_buff, "%02d", ta.tm_min);  /* SAFE */
-				strcat(str, tmp_buff);
-				break;
-			case 's':		/* seconds, numeric */
-				sprintf(tmp_buff, "%02d", ta.tm_sec);  /* SAFE */
-				strcat(str, tmp_buff);
-				break;
-			case 'A':		/* AM/PM */
-				strcat(str, (ta.tm_hour >= 12 ? "PM" : "AM"));
-				break;
-			case 'a':		/* am/pm */
-				strcat(str, (ta.tm_hour >= 12 ? "pm" : "am"));
-				break;
-			case 'S':		/* standard english suffix, e.g. 2nd/3rd for the day of the month */
-				if (ta.tm_mday >= 10 && ta.tm_mday <= 19) {
-					strcat(str, "th");
-				} else {
-					switch (ta.tm_mday % 10) {
-						case 1:
-							strcat(str, "st");
-							break;
-						case 2:
-							strcat(str, "nd");
-							break;
-						case 3:
-							strcat(str, "rd");
-							break;
-						default:
-							strcat(str, "th");
-							break;
-					}
-				}
-				break;
-			case 'L':		/* boolean for leapyear */
-				sprintf(tmp_buff, "%d", (isleap((ta.tm_year)) ? 1 : 0 ) );
-				strcat(str, tmp_buff);
-				break;
-			default: {
-				char ch[2];
-				ch[0] = format[i];
-				ch[1] = '\0';
-				strcat(str, ch);
-			}
-		}
-	}
-	return(str);
+  char tmp_buff[32], *str;
+  int i, size=0;
+  struct tm ta;
+  int secs, days;
+  
+  value = value / 1000.0;
+  days = (int) (value / 86400);
+  secs = (int) fmod(value, 86400);
+  PX_SdnToGregorian(days+1721425, &ta.tm_year, &ta.tm_mon, &ta.tm_mday);
+  ta.tm_mon--;
+  ta.tm_hour = secs/3600;
+  ta.tm_min = secs/60%60;
+  ta.tm_sec = secs%60;
+  
+  for (i = 0; i < strlen(format); i++) {
+    switch(format[i]) {
+    case 'Y':       /* year, numeric, 4 digits */
+      size += 6;  /* Allow years to be 6 digits long */
+      break;
+    case 'y':       /* year, numeric, 2 digits */
+    case 'm':       /* month, numeric */
+    case 'n':       /* month, numeric, no leading zeroes */
+    case 'd':       /* day of the month, numeric */
+    case 'j':       /* day of the month, numeric, no leading zeros */
+    case 'H':       /* hour, numeric, 24 hour format */
+    case 'h':       /* hour, numeric, 12 hour format */
+    case 'G':       /* hour, numeric, 24 hour format, no leading zeroes */
+    case 'g':       /* hour, numeric, 12 hour format, no leading zeroes */
+    case 'i':       /* minutes, numeric */
+    case 's':       /* seconds, numeric */
+    case 'A':       /* AM/PM */
+    case 'a':       /* am/pm */
+    case 'S':       /* standard english suffix for the day of the month (e.g. 3rd, 2nd, etc) */
+      size += 2;
+      break;
+    case 'L':       /* boolean for leap year */
+      size++;
+      break;
+    default:
+      size++;
+      break;
+    }
+  }
+  if(NULL == (str = pxdoc->malloc(pxdoc, size+1, _("Allocate memory for timestamp string.")))) {
+    px_error(pxdoc, PX_MemoryError, _("Could not allocate memory for timestamp string."));
+    return NULL;
+  }
+  str[0] = '\0';
+  for (i = 0; i < strlen(format); i++) {
+    switch(format[i]) {
+    case '\\':
+      if (i < strlen(format) - 1) {
+        char ch[2];
+        ch[0] = format[++i];
+        ch[1] = '\0';
+        strcat(str, ch);
+      }
+    case 'Y':       /* year, numeric, 4 digits */
+      snprintf(tmp_buff, sizeof(tmp_buff), "%04d", ta.tm_year);
+      strcat(str, tmp_buff);
+      break;
+    case 'z':       /* day (of the year) */
+      snprintf(tmp_buff, sizeof(tmp_buff), "%d", ta.tm_yday);
+      strcat(str, tmp_buff);
+      break;
+    case 'y':       /* year, numeric, 2 digits */
+      snprintf(tmp_buff, sizeof(tmp_buff), "%02d", ((ta.tm_year)%100));
+      strcat(str, tmp_buff);
+      break;
+    case 'm':       /* month, numeric */
+      snprintf(tmp_buff, sizeof(tmp_buff), "%02d", ta.tm_mon + 1);
+      strcat(str, tmp_buff);
+      break;
+    case 'n':      /* month, numeric, no leading zeros */
+      snprintf(tmp_buff, sizeof(tmp_buff), "%d", ta.tm_mon + 1);
+      strcat(str, tmp_buff);
+      break;
+    case 'd':       /* day of the month, numeric */
+      snprintf(tmp_buff, sizeof(tmp_buff), "%02d", ta.tm_mday);
+      strcat(str, tmp_buff);
+      break;
+    case 'j':
+      snprintf(tmp_buff, sizeof(tmp_buff), "%d", ta.tm_mday);
+      strcat(str, tmp_buff);
+      break;
+    case 'H':       /* hour, numeric, 24 hour format */
+      snprintf(tmp_buff, sizeof(tmp_buff), "%02d", ta.tm_hour);
+      strcat(str, tmp_buff);
+      break;
+    case 'h': {     /* hour, numeric, 12 hour format */
+      int h = ta.tm_hour % 12; if (h==0) h = 12;
+      snprintf(tmp_buff, sizeof(tmp_buff), "%02d", h);
+      strcat(str, tmp_buff);
+      break;
+    }
+    case 'G':      /* hour, numeric, 24 hour format, no leading zeros */
+      snprintf(tmp_buff, sizeof(tmp_buff), "%d", ta.tm_hour);
+      strcat(str, tmp_buff);
+      break;
+    case 'g': {     /* hour, numeric, 12 hour format, no leading zeros */
+      int h = ta.tm_hour % 12; if (h==0) h = 12;
+      snprintf(tmp_buff, sizeof(tmp_buff), "%d", h);
+      strcat(str, tmp_buff);
+      break;
+    }
+    case 'i':       /* minutes, numeric */
+      snprintf(tmp_buff, sizeof(tmp_buff), "%02d", ta.tm_min);
+      strcat(str, tmp_buff);
+      break;
+    case 's':       /* seconds, numeric */
+      snprintf(tmp_buff, sizeof(tmp_buff), "%02d", ta.tm_sec);
+      strcat(str, tmp_buff);
+      break;
+    case 'A':       /* AM/PM */
+      strcat(str, (ta.tm_hour >= 12 ? "PM" : "AM"));
+      break;
+    case 'a':       /* am/pm */
+      strcat(str, (ta.tm_hour >= 12 ? "pm" : "am"));
+      break;
+    case 'S':       /* standard english suffix, e.g. 2nd/3rd for the day of the month */
+      if (ta.tm_mday >= 10 && ta.tm_mday <= 19) {
+        strcat(str, "th");
+      } else {
+        switch (ta.tm_mday % 10) {
+          case 1:
+            strcat(str, "st");
+            break;
+          case 2:
+            strcat(str, "nd");
+            break;
+          case 3:
+            strcat(str, "rd");
+            break;
+          default:
+            strcat(str, "th");
+            break;
+        }
+      }
+      break;
+    case 'L':       /* boolean for leapyear */
+      snprintf(tmp_buff, sizeof(tmp_buff), "%d", (isleap((ta.tm_year)) ? 1 : 0 ) );
+      strcat(str, tmp_buff);
+      break;
+    default: {
+        char ch[2];
+        ch[0] = format[i];
+        ch[1] = '\0';
+        strcat(str, ch);
+      }
+    }
+  }
+  return(str);
 }
 /* }}} */
 

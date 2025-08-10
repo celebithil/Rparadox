@@ -22,7 +22,7 @@ static int peakmem = 0;
 static int summem = 0;
 
 PXLIB_API void PXLIB_CALL
-PX_mp_init() {
+PX_mp_init(void) {
 	memset(memlist, 0, MAXMEM*sizeof(struct mem));
 }
 
@@ -99,7 +99,7 @@ PX_mp_free(pxdoc_t *p, void *mem) {
 }
 
 PXLIB_API void PXLIB_CALL
-PX_mp_list_unfreed() {
+PX_mp_list_unfreed(void) {
 	int i, j;
 	i = j = 0;
 	while(i < MAXMEM) {
