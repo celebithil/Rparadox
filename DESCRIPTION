@@ -1,17 +1,18 @@
 Package: Rparadox
-Title: What the Package Does (One Line, Title Case)
+Title: R Bindings for the Paradox Database Library
 Version: 0.1.6.1.8
 Authors@R: 
     person("Daniil", "Popov", , "popov.daniil@gmail.com", role = c("aut", "cre"))
-Description: What the package does (one paragraph).
+Description: Description: Provides an interface to the 'pxlib' C library for reading data from Paradox database files.
+  This package allows users to import data from .db and .mb files into R data structures like tibbles, supporting various Paradox data types.
 License: GPL (>= 2)
-Encoding: UTF-8
-Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.2
+Imports: 
+    blob,
+    hms,
+    tibble
 Suggests: 
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
-Imports: 
-    hms,
-    tibble,
-    blob
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
