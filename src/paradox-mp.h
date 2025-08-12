@@ -16,6 +16,6 @@ PXLIB_API void PXLIB_CALL
 PX_mp_free(pxdoc_t *p, void *mem);
 
 PXLIB_API void PXLIB_CALL
-PX_mp_list_unfreed();
+PX_mp_list_unfreed(void);
 
 #endif

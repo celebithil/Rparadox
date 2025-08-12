@@ -257,16 +257,18 @@ int px_get_date(char *cp) {
 
 void px_set_date(char *cp, int year, int month, int day)
 {
-	if (month > 12)
-		month = 0;
-	if (day > 31)
-		day = 0;
-	sprintf(cp, "%d", year);
-	cp[4] = month / 10 + '0';
-	cp[5] = month % 10 + '0';
-	cp[6] = day / 10 + '0';
-	cp[7] = day % 10 + '0';
-	cp[8] = 0;
+  if (month > 12)
+    month = 0;
+  if (day > 31)
+    day = 0;
+  
+  snprintf(cp, 5, "%04d", year);
+  
+  cp[4] = month / 10 + '0';
+  cp[5] = month % 10 + '0';
+  cp[6] = day / 10 + '0';
+  cp[7] = day % 10 + '0';
+  cp[8] = 0;
 }
 
 int px_date_year(char *cp)

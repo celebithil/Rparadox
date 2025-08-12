@@ -7,7 +7,7 @@
  * The following functions are declared in src/interface.c
  * and are exposed to R via .Call.
  */
-extern SEXP pxlib_open_file_c(SEXP filename_sexp);
+extern SEXP pxlib_open_file_c(SEXP filename_sexp, SEXP encoding_sexp);
 extern SEXP pxlib_close_file_c(SEXP pxdoc_extptr);
 extern SEXP pxlib_get_data_c(SEXP pxdoc_extptr);
 extern SEXP pxlib_set_blob_file_c(SEXP pxdoc_extptr, SEXP blob_filename_sexp);
