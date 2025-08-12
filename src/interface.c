@@ -103,7 +103,7 @@ SEXP pxlib_open_file_c(SEXP filename_sexp, SEXP encoding_sexp) {
   
   // 2. If no override, try to get codepage from file header.
   if (source_encoding_str == NULL && pxdoc->px_head->px_doscodepage > 0) {
-    sprintf(codepage_buffer, "CP%d", pxdoc->px_head->px_doscodepage);
+    snprintf(codepage_buffer, sizeof(codepage_buffer), "CP%d", pxdoc->px_head->px_doscodepage);
     source_encoding_str = codepage_buffer;
   }
   

@@ -1,6 +1,9 @@
-#include <stdlib.h>
-#include <stdarg.h>
+#include <R.h>
+#include <Rinternals.h>
+#include <R_ext/Error.h>
 #include <stdio.h>
+#include <stdarg.h>
+
 #include "px_intern.h"
 #include "paradox.h"
 
@@ -8,8 +11,8 @@
  * Default error handler if not set by application
  */
 void px_errorhandler(pxdoc_t *p, int error, const char *str, void *data) {
-	if(error != PX_Warning || p->warnings == px_true)
-		printf("PXLib: %s\n", str);
+  if(error != PX_Warning || (p && p->warnings == px_true))
+    REprintf("PXLib: %s\n", str);
 }
 /* }}} */
 
@@ -17,16 +20,16 @@ void px_errorhandler(pxdoc_t *p, int error, const char *str, void *data) {
  * Issue an error from within the library by using the error handler
  */
 void px_error(pxdoc_t *p, int type, const char *fmt, ...) {
-	char msg[256];
-	va_list ap;
-
-	va_start(ap, fmt);
-	vsprintf(msg, fmt, ap);
-
-	if(p->errorhandler)
-		(p->errorhandler)(p, type, msg, p->errorhandler_user_data);
-
-	va_end(ap);
+  char msg[256];
+  va_list ap;
+  
+  va_start(ap, fmt);
+  // ИЗМЕНЕНИЕ: Используем стандартную безопасную функцию vsnprintf
+  vsnprintf(msg, sizeof(msg), fmt, ap);
+  va_end(ap);
+  
+  if(p && p->errorhandler)
+    (p->errorhandler)(p, type, msg, p->errorhandler_user_data);
 }
 /* }}} */
 
