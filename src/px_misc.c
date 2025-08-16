@@ -29,18 +29,18 @@
  */
 long get_long_le(const char *cp)
 {
-	int ret;
-	unsigned char *source = (unsigned char *)cp;
-
-	if(NULL == cp)
-		return 0;
-
-	ret = *source++;
-	ret += ((*source++)<<8);
-	ret += ((*source++)<<16);
-	ret += ((*source++)<<24);
-
-	return ret;
+  unsigned long ret = 0;
+  unsigned char *source = (unsigned char *)cp;
+  
+  if(NULL == cp)
+    return 0;
+  
+  ret = *source++;
+  ret |= ((unsigned long)(*source++) << 8);
+  ret |= ((unsigned long)(*source++) << 16);
+  ret |= ((unsigned long)(*source++) << 24);
+  
+  return (long)ret;
 }
 
 void put_long_le(char *cp, long lval)
@@ -77,16 +77,16 @@ unsigned short int get_short_le(const char *cp)
  */
 short int get_short_le_s(const char *cp)
 {
-	short int ret;
-	unsigned char *source = (unsigned char *)cp;
-
-	if(NULL == cp)
-		return 0;
-
-	ret = *source++;
-	ret += ((*source++)<<8);
-
-	return ret;
+  unsigned short int ret = 0;
+  unsigned char *source = (unsigned char *)cp;
+  
+  if(NULL == cp)
+    return 0;
+  
+  ret = *source++;
+  ret |= ((unsigned short int)(*source++) << 8);
+  
+  return (short int)ret;
 }
 
 void put_short_le(char *cp, short int sval)
@@ -142,19 +142,20 @@ void put_double_le(char *cp, double fval)
  */
 long get_long_be(const char *cp)
 {
-	int ret;
-	unsigned char *source = (unsigned char *)cp;
-
-	if(NULL == cp)
-		return 0;
-
-	ret = ((*source++)<<24);
-	ret += ((*source++)<<16);
-	ret += ((*source++)<<8);
-	ret += *source++;
-
-	return ret;
+  unsigned long ret = 0;
+  unsigned char *source = (unsigned char *)cp;
+  
+  if(NULL == cp)
+    return 0;
+  
+  ret = ((unsigned long)(*source++) << 24);
+  ret |= ((unsigned long)(*source++) << 16);
+  ret |= ((unsigned long)(*source++) << 8);
+  ret |= *source++;
+  
+  return (long)ret;
 }
+
 
 void put_long_be(char *cp, long lval)
 {
@@ -169,16 +170,16 @@ void put_long_be(char *cp, long lval)
  */
 short int get_short_be(const char *cp)
 {
-	short int ret;
-	unsigned char *source = (unsigned char *)cp;
-
-	if(NULL == cp)
-		return 0;
-
-	ret = ((*source++)<<8);
-	ret += *source++;
-
-	return ret;
+  unsigned short int ret = 0;
+  unsigned char *source = (unsigned char *)cp;
+  
+  if(NULL == cp)
+    return 0;
+  
+  ret = ((unsigned short int)(*source++) << 8);
+  ret |= *source++;
+  
+  return (short int)ret;
 }
 
 void put_short_be(char *cp, short int sval)

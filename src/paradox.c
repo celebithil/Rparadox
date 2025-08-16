@@ -17,7 +17,6 @@
  *    Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  *    Boston, MA 02111-1307, USA.
  */
-
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -47,7 +46,6 @@
 #include "px_misc.h"
 #include "px_encode.h"
 #include "px_crypt.h"
-#include <R.h>
 
 #ifndef WIN32
 #define max(a,b) ((a)>(b) ? (a) : (b))
@@ -83,14 +81,7 @@ PX_get_subminorversion(void) {
  */
 PXLIB_API int PXLIB_CALL
 PX_has_recode_support(void) {
-#if PX_USE_RECODE
-	return(1);
-#else
-#if PX_USE_ICONV
 	return(2);
-#endif
-#endif
-	return(0);
 }
 /* }}} */
 
@@ -187,10 +178,10 @@ PX_new3(void  (*errorhandler)(pxdoc_t *p, int type, const char *msg, void *data)
 	pxdoc->px_pindex = NULL;
 
 	pxdoc->last_position = -1;
-#if PX_USE_ICONV
-	pxdoc->in_iconvcd = (iconv_t) -1;
-	pxdoc->out_iconvcd = (iconv_t) -1;
-#endif
+
+	pxdoc->in_iconvcd = (Riconv_t) -1;
+	pxdoc->out_iconvcd = (Riconv_t) -1;
+
 	pxdoc->targetencoding = NULL;
 	pxdoc->inputencoding = NULL;
 	pxdoc->px_data = NULL;
@@ -867,7 +858,6 @@ PX_set_parameter(pxdoc_t *pxdoc, const char *name, const char *value) {
 		}
 	} else if(strcmp(name, "targetencoding") == 0) {
 		int codepage;
-#if PX_USE_RECODE || PX_USE_ICONV
 		if(pxdoc->targetencoding)
 			pxdoc->free(pxdoc, pxdoc->targetencoding);
 		pxdoc->targetencoding = px_strdup(pxdoc, value);
@@ -877,14 +867,11 @@ PX_set_parameter(pxdoc_t *pxdoc, const char *name, const char *value) {
 			px_error(pxdoc, PX_RuntimeError, _("Target encoding could not be set."));
 			return -1;
 		}
-#else
-		px_error(pxdoc, PX_RuntimeError, _("Library has not been compiled with support for reencoding."));
-#endif
+
 		if(sscanf(value, "CP%d", &codepage)) {
 			PX_set_value(pxdoc, "codepage", (float)codepage);
 		}
 	} else if(strcmp(name, "inputencoding") == 0) {
-#if PX_USE_RECODE || PX_USE_ICONV
 		if(pxdoc->inputencoding)
 			pxdoc->free(pxdoc, pxdoc->inputencoding);
 		pxdoc->inputencoding = px_strdup(pxdoc, value);
@@ -894,9 +881,6 @@ PX_set_parameter(pxdoc_t *pxdoc, const char *name, const char *value) {
 			px_error(pxdoc, PX_RuntimeError, _("Input encoding could not be set."));
 			return -1;
 		}
-#else
-		px_error(pxdoc, PX_RuntimeError, _("Library has not been compiled with support for reencoding."));
-#endif
 	} else if(strcmp(name, "warning") == 0) {
 		if(strcmp(value, "true") == 0) {
 			pxdoc->warnings = px_true;
@@ -2567,22 +2551,10 @@ PX_delete(pxdoc_t *pxdoc) {
 	 */
 	PX_close(pxdoc);
 
-#if PX_USE_RECODE
-	if(pxdoc->recode_outer)
-		recode_delete_outer(pxdoc->recode_outer);
-
-	if(pxdoc->out_recode_request)
-		recode_delete_request(pxdoc->out_recode_request);
-	if(pxdoc->in_recode_request)
-		recode_delete_request(pxdoc->in_recode_request);
-#else
-#if PX_USE_ICONV
-	if((intptr_t) pxdoc->out_iconvcd > 0)
-		iconv_close(pxdoc->out_iconvcd);
-	if((intptr_t) pxdoc->in_iconvcd > 0)
-		iconv_close(pxdoc->in_iconvcd);
-#endif
-#endif
+	if(pxdoc->out_iconvcd != (Riconv_t)(-1))
+	  Riconv_close(pxdoc->out_iconvcd);
+	if(pxdoc->in_iconvcd != (Riconv_t)(-1))
+	  Riconv_close(pxdoc->in_iconvcd);
 
 	if(pxdoc->targetencoding)
 		pxdoc->free(pxdoc, pxdoc->targetencoding);
@@ -2747,7 +2719,6 @@ PX_get_recordsize(pxdoc_t *pxdoc) {
 PXLIB_API int PXLIB_CALL
 PX_set_targetencoding(pxdoc_t *pxdoc, const char *encoding) {
 	int codepage;
-#if PX_USE_RECODE || PX_USE_ICONV
 	if(pxdoc == NULL) {
 		px_error(pxdoc, PX_RuntimeError, _("Did not pass a paradox database."));
 		return -1;
@@ -2770,10 +2741,6 @@ PX_set_targetencoding(pxdoc_t *pxdoc, const char *encoding) {
 		px_error(pxdoc, PX_RuntimeError, _("Target encoding could not be set."));
 		return -1;
 	}
-#else
-	px_error(pxdoc, PX_RuntimeError, _("Library has not been compiled with support for reencoding."));
-	return -2;
-#endif
 	if(sscanf(encoding, "CP%d", &codepage)) {
 		PX_set_value(pxdoc, "codepage", (float)codepage);
 	}
@@ -2789,7 +2756,6 @@ PX_set_targetencoding(pxdoc_t *pxdoc, const char *encoding) {
  */
 PXLIB_API int PXLIB_CALL
 PX_set_inputencoding(pxdoc_t *pxdoc, const char *encoding) {
-#if PX_USE_RECODE || PX_USE_ICONV
 	if(pxdoc == NULL) {
 		px_error(pxdoc, PX_RuntimeError, _("Did not pass a paradox database."));
 		return -1;
@@ -2813,10 +2779,6 @@ PX_set_inputencoding(pxdoc_t *pxdoc, const char *encoding) {
 		return -1;
 	}
 
-#else
-	px_error(pxdoc, PX_RuntimeError, _("Library has not been compiled with support for reencoding."));
-	return -2;
-#endif
 	return 0;
 }
 /* }}} */
@@ -3407,14 +3369,10 @@ PX_get_data_alpha(pxdoc_t *pxdoc, char *data, int len, char **value) {
 	}
 
 	if(pxdoc->targetencoding != NULL) {
-#if PX_USE_RECODE
-		int oallocated = 0;
-		recode_buffer_to_buffer(pxdoc->out_recode_request, data, len, &obuf, &olen, &oallocated);
-#else
-#if PX_USE_ICONV
-		size_t ilen;
-		char *iptr, *optr;
-		int res;
+	  size_t ilen;
+	  const char *iptr;
+	  char *optr;
+		size_t res;
 		/* Worst case for length of output buffer. If conversion from 1 byte
 		 * to 2 byte chars takes place
 		 */
@@ -3423,14 +3381,14 @@ PX_get_data_alpha(pxdoc_t *pxdoc, char *data, int len, char **value) {
 		 * We use free because the memory allocated by recode_buffer_to_buffer()
 		 * is requested with malloc and must be freed with free.
 		 */
-		optr = obuf = (char *) malloc(olen);
-		iptr = data;
-		ilen = 0;
+    optr = obuf = (char *) malloc(olen);
+    iptr = data;
+    ilen = 0;
 		while(iptr[ilen] != '\0' && ilen < (size_t) len)
 			ilen++;
 //		printf("data(%d) = '%s'\n", ilen, data);
 //		printf("obuf(%d) = '%s'\n", olen, obuf);
-		if(0 > (res = iconv(pxdoc->out_iconvcd, &iptr, &ilen, &optr, &olen))) {
+    if((size_t)-1 == (res = Riconv(pxdoc->out_iconvcd, &iptr, &ilen, &optr, &olen)))  {
 			*value = NULL;
 			free(obuf);
 			return -1;
@@ -3439,8 +3397,6 @@ PX_get_data_alpha(pxdoc_t *pxdoc, char *data, int len, char **value) {
 //		printf("data(%d) = '%s'\n", ilen, data);
 //		printf("obuf(%d) = '%s'\n", olen, obuf);
 		olen = optr-obuf;
-#endif
-#endif
 	} else {
 		olen = len;
 		obuf = data;
@@ -3854,13 +3810,9 @@ PX_put_data_alpha(pxdoc_t *pxdoc, char *data, int len, char *value) {
 	}
 
 	if(pxdoc->targetencoding != NULL) {
-#if PX_USE_RECODE
-		int oallocated = 0;
-		int res = recode_buffer_to_buffer(pxdoc->in_recode_request, value, strlen(value), &obuf, &olen, &oallocated);
-#else
-#if PX_USE_ICONV
-		size_t ilen = strlen(value);
-		char *iptr, *optr;
+    size_t ilen = strlen(value);
+	  const char *iptr;
+	  char *optr;
 		olen = len + 1;
 		/* Do not pxdoc->malloc because the memory is freed with free
 		 * We use free because the memory allocated by recode_buffer_to_buffer()
@@ -3870,7 +3822,7 @@ PX_put_data_alpha(pxdoc_t *pxdoc, char *data, int len, char *value) {
 		iptr = value;
 //		printf("value(%d) = '%s'\n", ilen, value);
 //		printf("obuf(%d) = '%s'\n", olen, obuf);
-		if(0 > (res = iconv(pxdoc->in_iconvcd, &iptr, &ilen, &optr, &olen))) {
+  if((size_t)-1 == (res = Riconv(pxdoc->in_iconvcd, &iptr, &ilen, &optr, &olen))) {
 			memset(data, 0, len);
 			free(obuf);
 			return;
@@ -3879,8 +3831,6 @@ PX_put_data_alpha(pxdoc_t *pxdoc, char *data, int len, char *value) {
 //		printf("value(%d) = '%s'\n", ilen, value);
 //		printf("obuf(%d) = '%s'\n", olen, obuf);
 		olen = optr-obuf;
-#endif
-#endif
 	} else {
 		olen = strlen(value);
 		obuf = value;
@@ -4062,172 +4012,171 @@ PX_put_data_bcd(pxdoc_t *pxdoc, char *data, int len, char *value) {
  */
 static int
 _px_put_data_blob(pxdoc_t *pxdoc, const char *data, int len, char *value, int valuelen) {
-	pxblob_t *pxblob;
-	pxstream_t *pxs;
-	int leader;
-
-	/* If the (field length - 10) is large enough to hold the blob data,
-	 * we don't need to bother writing into the blob file. */
-	leader = len - 10;
-	if(valuelen > leader) {
-		int found;
-		pxmbblockinfo_t *blockinfoptr = NULL;
-		pxblob = pxdoc->px_blob;
-		if(!pxblob || !pxblob->mb_stream) {
-			px_error(pxdoc, PX_RuntimeError, _("Paradox database has no blob file."));
-			return(-1);
-		}
-
-		if((found = px_find_blob_slot(pxblob, valuelen, &blockinfoptr)) > 0) {
-		}
-		pxs = pxblob->mb_stream;
-		if(valuelen > 2048) { /* Block of type 2 */
-			TMbBlockHeader2 mbbh;
-			int used_blocks;
-
-			/* FIXME: need to add code which reuses free blocks for blocks of type 2*/
-//			fprintf(stderr, "Blob goes into type 2 block\n");
-			if(pxblob->seek(pxblob, pxs, (pxblob->used_datablocks+1)*4096, SEEK_SET) < 0) {
-				px_error(pxdoc, PX_RuntimeError, _("Could not go to the beginning of the first free block in the blob file."));
-				return -1;
-			}
-			/* Calculate how many blocks of 4K this blob will need */
-			used_blocks = ((valuelen+sizeof(TMbBlockHeader2)-1) / 4096) + 1;
-
-			/* Fill up the structure that precede the blob in the mb file. */
-			mbbh.type = 2;
-			put_short_le((char *) &mbbh.numBlocks, used_blocks);
-			put_long_le((char *) &mbbh.blobLen, valuelen);
-			put_short_le((char *) &mbbh.modNr, ++pxblob->mb_head->modcount);
-
-			/* Write the header of the blob */
-			if(pxblob->write(pxblob, pxs, sizeof(TMbBlockHeader2), &mbbh) < 1) {
-				px_error(pxdoc, PX_RuntimeError, _("Could not write header of blob data to file."));
-				return -1;
-			}
-			/* Write the blob itself */
-			if(pxblob->write(pxblob, pxs, valuelen, value) < 1) {
-				px_error(pxdoc, PX_RuntimeError, _("Could not write blob data to file."));
-				return -1;
-			}
-			put_long_le((char *) &data[leader], (pxblob->used_datablocks+1)*4096 + 0xff);
-			put_short_le((char *) &data[leader+8], pxblob->mb_head->modcount);
-			pxblob->used_datablocks += used_blocks;
-		} else { /* Block of type 3 */
-			TMbBlockHeader3Table mbbhtab;
-			int j;
-//			fprintf(stderr, "Blob goes into type 3 block\n");
-			if(found > 0) {
-				pxblob->subblockoffset = blockinfoptr->number;
-				pxblob->subblockblobcount = blockinfoptr->numblobs;
-				pxblob->subblockfree = 235-blockinfoptr->allocspace;
-			}
-			/* Do we have subblock already? Does the block have enough space? */
-			if(pxblob->subblockoffset == 0 || (pxblob->subblockblobcount > 63) || ((pxblob->subblockfree*16) < valuelen)) {
-				TMbBlockHeader3 mbbh;
-				int i, nullint=0;
-
-				if(pxblob->seek(pxblob, pxs, (pxblob->used_datablocks+1)*4096, SEEK_SET) < 0) {
-					px_error(pxdoc, PX_RuntimeError, _("Could not go to the beginning of the first free block in the blob file."));
-					return -1;
-				}
-
-				memset(&mbbh, 0, sizeof(TMbBlockHeader3));
-				mbbh.type = 3;
-				put_short_le((char *) &mbbh.numBlocks, 1);
-				/* Write the header of the blob */
-				if(pxblob->write(pxblob, pxs, sizeof(TMbBlockHeader3), &mbbh) < 1) {
-					px_error(pxdoc, PX_RuntimeError, _("Could not write header of blob data to file."));
-					return -1;
-				}
-				for(i=0; i<4096-sizeof(TMbBlockHeader3); i++) {
-					if(pxblob->write(pxblob, pxs, 1, &nullint) < 1) {
-						px_error(pxdoc, PX_RuntimeError, _("Could not write remaining of a type 3 block."));
-						return -1;
-					}
-				}
-				pxblob->used_datablocks++;
-				pxblob->subblockoffset = pxblob->used_datablocks;
-				pxblob->subblockblobcount = 0;
-				pxblob->subblockfree = 4096/16 - 21;
-			}
-
-			/* At this point a block of type 3 should be available and has enough
-			 * space to store the blob data.
-			 * First write the table entry pointing to the blob data. The table is
-			 * filled from the end to the beginning.
-			 * FIXME: The assumption that all table entries are filled starting from
-			 * the end isn't true anymore. PX_delete_record() could have left empty
-			 * slots in the table. Loop through the index table from the end to the
-			 * start and use the first free slot.
-			 */
-			if(pxblob->seek(pxblob, pxs, (pxblob->subblockoffset)*4096+sizeof(TMbBlockHeader3)+63*sizeof(TMbBlockHeader3Table), SEEK_SET) < 0) {
-				px_error(pxdoc, PX_RuntimeError, _("Could not go to last table entry for the blob data."));
-				return -1;
-			}
-			for(j=63; j>=0; j--) {
-				if(pxblob->read(pxblob, pxblob->mb_stream, sizeof(TMbBlockHeader3Table), &mbbhtab) < 0) {
-					px_error(pxdoc, PX_RuntimeError, _("Could not read entry in index table of type 3 block."));
-					return -1;
-				}
-				if(mbbhtab.offset == 0) {
-					if(pxblob->seek(pxblob, pxs, -1*sizeof(TMbBlockHeader3Table), SEEK_CUR) < 0) {
-						px_error(pxdoc, PX_RuntimeError, _("Could not go to table entry for the blob data."));
-						return -1;
-					}
-					break;
-				}
-				if(pxblob->seek(pxblob, pxs, -2*sizeof(TMbBlockHeader3Table), SEEK_CUR) < 0) {
-					px_error(pxdoc, PX_RuntimeError, _("Could not go to table entry for the blob data."));
-					return -1;
-				}
-			}
-			mbbhtab.offset = (4096/16)-pxblob->subblockfree; /* offset/16 to blob data */
-			mbbhtab.length = (valuelen-1)/16 + 1;
-
-			/* FIXME: Using subblockblobcount is probably not sufficient. It
-			 * maybe a counter over the whole file and not just the block.
-			 * Uwe 17.12.2004: Tried (pxblob->mb_head->modcount+1) instead of
-			 * (pxblob->subblockblobcount+1)
-			 */
-			put_short_le((char *) &mbbhtab.modNr, pxblob->mb_head->modcount+1);
-			mbbhtab.lengthmod = (valuelen % 16) == 0 ? 16 : (valuelen % 16);
-			/* Write the blob table entry */
-			if(pxblob->write(pxblob, pxs, sizeof(TMbBlockHeader3Table), &mbbhtab) < 1) {
-				px_error(pxdoc, PX_RuntimeError, _("Could not write table entry for blob data to file."));
-				return -1;
-			}
-			/* Write the blob itself */
-			if(pxblob->seek(pxblob, pxs, pxblob->subblockoffset*4096+mbbhtab.offset*16, SEEK_SET) < 0) {
-				px_error(pxdoc, PX_RuntimeError, _("Could not go to the beginning of the slot for the blob."));
-				return -1;
-			}
-			if(pxblob->write(pxblob, pxs, valuelen, value) < 1) {
-				px_error(pxdoc, PX_RuntimeError, _("Could not write blob data to file."));
-				return -1;
-			}
-			pxblob->subblockfree -= mbbhtab.length;
-			pxblob->subblockblobcount++;
-
-			put_long_le((char *) &data[leader], (pxblob->subblockoffset)*4096 + j);
-			put_short_le((char *) &data[leader+8], ++pxblob->mb_head->modcount);
-		}
-	} else { /* blob fits in db file */
-		put_long_le((char *) &data[leader], 0);
-		put_short_le((char *) &data[leader+8], 0);
-	}
-	put_long_le((char *) &data[leader+4], valuelen);
-
-	/* Write the info about the blob into the db file.
-	 * The field value always starts with the blob data followed by a
-	 * 10 Byte section. */
-	if(leader) {
-		if(leader <= valuelen)
-			memcpy((char *) data, value, leader);
-		else
-			memcpy((char *) data, value, valuelen);
-	}
-	return 0;
+  pxblob_t *pxblob;
+  pxstream_t *pxs;
+  int leader;
+  
+  /* If the (field length - 10) is large enough to hold the blob data,
+   * we don't need to bother writing into the blob file. */
+  leader = len - 10;
+  if(valuelen > leader) {
+    int found;
+    pxmbblockinfo_t *blockinfoptr = NULL;
+    pxblob = pxdoc->px_blob;
+    if(!pxblob || !pxblob->mb_stream) {
+      px_error(pxdoc, PX_RuntimeError, _("Paradox database has no blob file."));
+      return(-1);
+    }
+    
+    if((found = px_find_blob_slot(pxblob, valuelen, &blockinfoptr)) > 0) {
+    }
+    pxs = pxblob->mb_stream;
+    if(valuelen > 2048) { /* Block of type 2 */
+  TMbBlockHeader2 mbbh;
+      int used_blocks;
+      
+      /* FIXME: need to add code which reuses free blocks for blocks of type 2*/
+      if(pxblob->seek(pxblob, pxs, (pxblob->used_datablocks+1)*4096, SEEK_SET) < 0) {
+        px_error(pxdoc, PX_RuntimeError, _("Could not go to the beginning of the first free block in the blob file."));
+        return -1;
+      }
+      
+      /* Calculate how many blocks of 4K this blob will need */
+      used_blocks = ((valuelen+sizeof(TMbBlockHeader2)-1) / 4096) + 1;
+      
+      /* Fill up the structure that precede the blob in the mb file. */
+      mbbh.type = 2;
+      put_short_le((char *) &mbbh.numBlocks, used_blocks);
+      put_long_le((char *) &mbbh.blobLen, valuelen);
+      put_short_le((char *) &mbbh.modNr, ++pxblob->mb_head->modcount);
+      
+      /* Write the header of the blob */
+      if(pxblob->write(pxblob, pxs, sizeof(TMbBlockHeader2), &mbbh) < 1) {
+        px_error(pxdoc, PX_RuntimeError, _("Could not write header of blob data to file."));
+        return -1;
+      }
+      /* Write the blob itself */
+      if(pxblob->write(pxblob, pxs, valuelen, value) < 1) {
+        px_error(pxdoc, PX_RuntimeError, _("Could not write blob data to file."));
+        return -1;
+      }
+      put_long_le((char *) &data[leader], (pxblob->used_datablocks+1)*4096 + 0xff);
+      put_short_le((char *) &data[leader+8], pxblob->mb_head->modcount);
+      pxblob->used_datablocks += used_blocks;
+    } else { /* Block of type 3 */
+      TMbBlockHeader3Table mbbhtab;
+      int j;
+      
+      if(found > 0) {
+        pxblob->subblockoffset = blockinfoptr->number;
+        pxblob->subblockblobcount = blockinfoptr->numblobs;
+        pxblob->subblockfree = 235-blockinfoptr->allocspace;
+      }
+      /* Do we have subblock already? Does the block have enough space? */
+      if(pxblob->subblockoffset == 0 || (pxblob->subblockblobcount > 63) || ((pxblob->subblockfree*16) < valuelen)) {
+        TMbBlockHeader3 mbbh;
+        int i, nullint=0;
+        
+        if(pxblob->seek(pxblob, pxs, (pxblob->used_datablocks+1)*4096, SEEK_SET) < 0) {
+          px_error(pxdoc, PX_RuntimeError, _("Could not go to the beginning of the first free block in the blob file."));
+          return -1;
+        }
+        
+        memset(&mbbh, 0, sizeof(TMbBlockHeader3));
+        mbbh.type = 3;
+        put_short_le((char *) &mbbh.numBlocks, 1);
+        /* Write the header of the blob */
+        if(pxblob->write(pxblob, pxs, sizeof(TMbBlockHeader3), &mbbh) < 1) {
+          px_error(pxdoc, PX_RuntimeError, _("Could not write header of blob data to file."));
+          return -1;
+        }
+        for(i=0; i<4096-sizeof(TMbBlockHeader3); i++) {
+          if(pxblob->write(pxblob, pxs, 1, &nullint) < 1) {
+            px_error(pxdoc, PX_RuntimeError, _("Could not write remaining of a type 3 block."));
+            return -1;
+          }
+        }
+        pxblob->used_datablocks++;
+        pxblob->subblockoffset = pxblob->used_datablocks;
+        pxblob->subblockblobcount = 0;
+        pxblob->subblockfree = 4096/16 - 21;
+      }
+      
+      /* At this point a block of type 3 should be available and has enough
+       * space to store the blob data.
+       * First write the table entry pointing to the blob data. The table is
+       * filled from the end to the beginning.
+       * FIXME: The assumption that all table entries are filled starting from
+       * the end isn't true anymore. PX_delete_record() could have left empty
+       * slots in the table. Loop through the index table from the end to the
+       * start and use the first free slot.
+       */
+      if(pxblob->seek(pxblob, pxs, (pxblob->subblockoffset)*4096+sizeof(TMbBlockHeader3)+63*sizeof(TMbBlockHeader3Table), SEEK_SET) < 0) {
+        px_error(pxdoc, PX_RuntimeError, _("Could not go to last table entry for the blob data."));
+        return -1;
+      }
+      for(j=63; j>=0; j--) {
+        if(pxblob->read(pxblob, pxblob->mb_stream, sizeof(TMbBlockHeader3Table), &mbbhtab) < 0) {
+          px_error(pxdoc, PX_RuntimeError, _("Could not read entry in index table of type 3 block."));
+          return -1;
+        }
+        if(mbbhtab.offset == 0) {
+          if(pxblob->seek(pxblob, pxs, -1L * (long)sizeof(TMbBlockHeader3Table), SEEK_CUR) < 0) {
+            px_error(pxdoc, PX_RuntimeError, _("Could not go to table entry for the blob data."));
+            return -1;
+          }
+          break;
+        }
+        if(pxblob->seek(pxblob, pxs, -2L * (long)sizeof(TMbBlockHeader3Table), SEEK_CUR) < 0) {
+          px_error(pxdoc, PX_RuntimeError, _("Could not go to table entry for the blob data."));
+          return -1;
+        }
+      }
+      mbbhtab.offset = (4096/16)-pxblob->subblockfree; /* offset/16 to blob data */
+      mbbhtab.length = (valuelen-1)/16 + 1;
+      /* FIXME: Using subblockblobcount is probably not sufficient. It
+       * maybe a counter over the whole file and not just the block.
+       * Uwe 17.12.2004: Tried (pxblob->mb_head->modcount+1) instead of
+       * (pxblob->subblockblobcount+1)
+       */
+      put_short_le((char *) &mbbhtab.modNr, pxblob->mb_head->modcount+1);
+      mbbhtab.lengthmod = (valuelen % 16) == 0 ? 16 : (valuelen % 16);
+      /* Write the blob table entry */
+      if(pxblob->write(pxblob, pxs, sizeof(TMbBlockHeader3Table), &mbbhtab) < 1) {
+        px_error(pxdoc, PX_RuntimeError, _("Could not write table entry for blob data to file."));
+        return -1;
+      }
+      /* Write the blob itself */
+      if(pxblob->seek(pxblob, pxs, pxblob->subblockoffset*4096+mbbhtab.offset*16, SEEK_SET) < 0) {
+        px_error(pxdoc, PX_RuntimeError, _("Could not go to the beginning of the slot for the blob."));
+        return -1;
+      }
+      if(pxblob->write(pxblob, pxs, valuelen, value) < 1) {
+        px_error(pxdoc, PX_RuntimeError, _("Could not write blob data to file."));
+        return -1;
+      }
+      pxblob->subblockfree -= mbbhtab.length;
+      pxblob->subblockblobcount++;
+      
+      put_long_le((char *) &data[leader], (pxblob->subblockoffset)*4096 + j);
+      put_short_le((char *) &data[leader+8], ++pxblob->mb_head->modcount);
+    }
+  } else { /* blob fits in db file */
+      put_long_le((char *) &data[leader], 0);
+    put_short_le((char *) &data[leader+8], 0);
+  }
+  put_long_le((char *) &data[leader+4], valuelen);
+  
+  /* Write the info about the blob into the db file.
+   * The field value always starts with the blob data followed by a
+   * 10 Byte section. */
+  if(leader) {
+    if(leader <= valuelen)
+      memcpy((char *) data, value, leader);
+    else
+      memcpy((char *) data, value, valuelen);
+  }
+  return 0;
 }
 /* }}} */
 

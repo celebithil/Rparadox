@@ -1,17 +1,12 @@
 #ifndef __PARADOX_H__
 #define __PARADOX_H__
 
-#define PX_USE_RECODE 0
-#define PX_USE_ICONV 1
-
+#include <R.h>            // Standard R header for C extensions
+#include <Rinternals.h>   // R SEXP objects and functions
+#include <R_ext/Riconv.h> // For re-encoding character strings to UTF-8
 #include <stdio.h>
-#if PX_USE_RECODE
-#include <recode.h>
-#else
-#if PX_USE_ICONV
-#include <iconv.h>
-#endif
-#endif
+
+typedef void* Riconv_t;
 
 #ifdef WIN32
 
@@ -32,7 +27,7 @@ typedef SSIZE_T ssize_t;
 #endif  /* !PXLIB_DLL */
 
 #endif /* !WIN32 */
-
+  
 #ifndef PXLIB_CALL
 #define PXLIB_CALL
 #endif
@@ -215,16 +210,8 @@ struct px_doc {
 
 	char *targetencoding;
 	char *inputencoding;
-#if PX_USE_RECODE
-	RECODE_OUTER recode_outer;
-	RECODE_REQUEST out_recode_request; /* Encoding of written data */
-	RECODE_REQUEST in_recode_request; /* Encoding of read data */
-#else
-#if PX_USE_ICONV
-	iconv_t out_iconvcd;  /* Encoding of written data */
-	iconv_t in_iconvcd;   /* Encoding of read data */
-#endif
-#endif
+	Riconv_t out_iconvcd;   /* Encoding of written data */
+	Riconv_t in_iconvcd;    /* Encoding of read data */
 
 	long curblocknr;      /* Number of current block in cache (0-n) */
 	int curblockdirty;    /* Set to px_true if the block needs to be written */
@@ -558,12 +545,3 @@ PXLIB_API char * PXLIB_CALL
 PX_strdup(pxdoc_t *pxdoc, const char *str);
 
 #endif
-
-/*
- * Local variables:
- * tab-width: 4
- * c-basic-offset: 4
- * End:
- * vim600: sw=4 ts=4 fdm=marker
- * vim<600: sw=4 ts=4
- */

@@ -10,13 +10,9 @@
  * them record by record.
  */
 
-#include <R.h>          // Standard R header for C extensions
-#include <Rinternals.h> // R SEXP objects and functions
-#include <stdlib.h>     // For malloc, free, realloc
-#include <string.h>     // For strcmp, strlen, memcpy
-#include <iconv.h>      // For re-encoding character strings to UTF-8
-
-#include "paradox.h"    // pxlib main header, contains pxdoc_t, pxval_t, pxfield_t etc.
+#include <stdlib.h>  // For malloc, free, realloc
+#include <string.h>  // For strcmp, strlen, memcpy
+#include "paradox.h" // pxlib main header, contains pxdoc_t, pxval_t, pxfield_t etc.
 
 // Forward declarations for static helper functions.
 static void pxdoc_finalizer(SEXP extptr);
@@ -111,12 +107,12 @@ SEXP pxlib_open_file_c(SEXP filename_sexp, SEXP encoding_sexp) {
   if (source_encoding_str != NULL) {
     const char* target_encoding = "UTF-8";
     
-    if (pxdoc->out_iconvcd != (iconv_t)(-1)) {
-      iconv_close(pxdoc->out_iconvcd);
+    if (pxdoc->out_iconvcd != (Riconv_t)(-1)) {
+      Riconv_close(pxdoc->out_iconvcd);
     }
-    pxdoc->out_iconvcd = iconv_open(target_encoding, source_encoding_str);
+    pxdoc->out_iconvcd = Riconv_open(target_encoding, source_encoding_str);
     
-    if (pxdoc->out_iconvcd == (iconv_t)(-1)) {
+    if (pxdoc->out_iconvcd == (Riconv_t)(-1)) {
       Rf_warning("Failed to set up encoding conversion from '%s' to '%s'.",
                  source_encoding_str, target_encoding);
     } else {
@@ -291,15 +287,23 @@ static SEXP px_to_sexp(pxdoc_t* pxdoc, pxval_t* val, int px_ftype) {
     return R_NilValue;
   }
   
+  SEXP r_string;
+  
   switch(px_ftype) {
   case pxfAlpha:
-    return mkCharCE(val->value.str.val, CE_UTF8);
+    r_string = mkCharCE(val->value.str.val, CE_UTF8);
+    free(val->value.str.val);
+    return r_string;
     
   case pxfBCD:
     if (strcmp(val->value.str.val, "-??????????????????????????.??????") == 0) {
+      // Освобождаем память, даже если значение NULL-подобное
+      free(val->value.str.val);
       return R_NilValue;
     }
-    return mkChar(val->value.str.val);
+    r_string = mkChar(val->value.str.val);
+    free(val->value.str.val);
+    return r_string;
     
   case pxfMemoBLOb:
   case pxfFmtMemoBLOb:
@@ -319,7 +323,6 @@ static SEXP px_to_sexp(pxdoc_t* pxdoc, pxval_t* val, int px_ftype) {
     safe_buffer[len] = '\0'; // Ensure null-termination
     
     // Attempt to re-encode the string to UTF-8
-    SEXP r_string;
     char* utf8_string = re_encode_string_to_utf8(pxdoc, safe_buffer);
     if (utf8_string != NULL) {
       r_string = mkCharCE(utf8_string, CE_UTF8);
@@ -333,7 +336,13 @@ static SEXP px_to_sexp(pxdoc_t* pxdoc, pxval_t* val, int px_ftype) {
     return r_string;
   }
     
-  case pxfBLOb: case pxfGraphic: case pxfBytes: case pxfOLE:
+  case pxfBytes: {
+    r_string = mkCharLen(val->value.str.val, val->value.str.len);
+    free(val->value.str.val);
+    return r_string;
+  }
+    
+  case pxfBLOb: case pxfGraphic: case pxfOLE:
     if (val->value.str.len == 0) {
       return R_NilValue;
     }
@@ -397,14 +406,14 @@ static char* re_encode_string_to_utf8(pxdoc_t* pxdoc, const char* input_str) {
     return NULL;
   }
   
-  char* input_ptr = (char*) input_str;
+  const char* input_ptr = (const char*) input_str;
   char* output_ptr = output_buf;
   size_t output_len_remaining = output_len;
   
   // Reset iconv state before each conversion.
-  iconv(pxdoc->out_iconvcd, NULL, NULL, NULL, NULL);
+  Riconv(pxdoc->out_iconvcd, NULL, NULL, NULL, NULL);
   
-  size_t result = iconv(pxdoc->out_iconvcd, &input_ptr, &input_len, &output_ptr, &output_len_remaining);
+  size_t result = Riconv(pxdoc->out_iconvcd, &input_ptr, &input_len, &output_ptr, &output_len_remaining);
   *output_ptr = '\0'; // Null-terminate the output string.
   
   if (result == (size_t)-1) {
