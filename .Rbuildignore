@@ -6,3 +6,5 @@
 ^src/*\.dll$
 ^src/*\.def$
 ^\.github$
+^README\.Rmd$
+^README\.html$
