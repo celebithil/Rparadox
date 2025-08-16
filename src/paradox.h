@@ -1,17 +1,8 @@
 #ifndef __PARADOX_H__
 #define __PARADOX_H__
 
-#define PX_USE_RECODE 0
-#define PX_USE_ICONV 1
-
 #include <stdio.h>
-#if PX_USE_RECODE
-#include <recode.h>
-#else
-#if PX_USE_ICONV
 #include <iconv.h>
-#endif
-#endif
 
 #ifdef WIN32
 
@@ -215,16 +206,8 @@ struct px_doc {
 
 	char *targetencoding;
 	char *inputencoding;
-#if PX_USE_RECODE
-	RECODE_OUTER recode_outer;
-	RECODE_REQUEST out_recode_request; /* Encoding of written data */
-	RECODE_REQUEST in_recode_request; /* Encoding of read data */
-#else
-#if PX_USE_ICONV
 	iconv_t out_iconvcd;  /* Encoding of written data */
 	iconv_t in_iconvcd;   /* Encoding of read data */
-#endif
-#endif
 
 	long curblocknr;      /* Number of current block in cache (0-n) */
 	int curblockdirty;    /* Set to px_true if the block needs to be written */
