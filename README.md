@@ -1,4 +1,7 @@
 
+[![Ask
+DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/celebithil/Rparadox)
+
 # Rparadox: A Modern Interface for Reading Paradox Databases in R
 
 **Rparadox** provides a simple and efficient way to read data from
@@ -76,19 +79,20 @@ if (!is.null(pxdoc)) {
   print(biolife_data)
 }
 #> # A tibble: 28 × 8
-#>    `Species No` Category      Common_Name          `Species Name`             `Length (cm)` Length_In Notes                                                                                           Graphic
-#>           <dbl> <chr>         <chr>                <chr>                              <dbl>     <dbl> <chr>                                                                                            <blob>
-#>  1        90020 Triggerfish   Clown Triggerfish    Ballistoides conspicillum             50     19.7  "Also known as the big spotted triggerfish.  Inhabits outer reef areas and feeds upon c… <raw 38.88 kB>
-#>  2        90030 Snapper       Red Emperor          Lutjanus sebae                        60     23.6  "Called seaperch in Australia.  Inhabits the areas around lagoon coral reefs and sandy … <raw 38.88 kB>
-#>  3        90050 Wrasse        Giant Maori Wrasse   Cheilinus undulatus                  229     90.2  "This is the largest of all the wrasse.  It is found in dense reef areas, feeding on a … <raw 38.88 kB>
-#>  4        90070 Angelfish     Blue Angelfish       Pomacanthus nauarchus                 30     11.8  "Habitat is around boulders, caves, coral ledges and crevices in shallow waters.  Swims… <raw 38.88 kB>
-#>  5        90080 Cod           Lunartail Rockcod    Variola louti                         80     31.5  "Also known as the coronation trout.  It is found around coral reefs from shallow to ve… <raw 38.88 kB>
-#>  6        90090 Scorpionfish  Firefish             Pterois volitans                      38     15.0  "Also known as the turkeyfish.  Inhabits reef caves and crevices.  The firefish is usua… <raw 38.88 kB>
-#>  7        90100 Butterflyfish Ornate Butterflyfish Chaetodon Ornatissimus                19      7.48 "Normally seen in pairs around dense coral areas from very shallow to moderate depths. … <raw 38.88 kB>
-#>  8        90110 Shark         Swell Shark          Cephaloscyllium ventriosum           102     40.2  "Inhabits shallow reef caves and crevices and kelp beds along the coast and offshore is… <raw 38.88 kB>
-#>  9        90120 Ray           Bat Ray              Myliobatis californica                56     22.0  "Also know as the grinder ray because of its flat grinding teeth used to crush its meal… <raw 38.88 kB>
-#> 10        90130 Eel           California Moray     Gymnothorax mordax                   150     59.1  "This fish hides in a shallow-water lair with just its head protruding during the day. … <raw 38.88 kB>
+#>    `Species No` Category      Common_Name `Species Name` `Length (cm)` Length_In
+#>           <dbl> <chr>         <chr>       <chr>                  <dbl>     <dbl>
+#>  1        90020 Triggerfish   Clown Trig… Ballistoides …            50     19.7 
+#>  2        90030 Snapper       Red Emperor Lutjanus sebae            60     23.6 
+#>  3        90050 Wrasse        Giant Maor… Cheilinus und…           229     90.2 
+#>  4        90070 Angelfish     Blue Angel… Pomacanthus n…            30     11.8 
+#>  5        90080 Cod           Lunartail … Variola louti             80     31.5 
+#>  6        90090 Scorpionfish  Firefish    Pterois volit…            38     15.0 
+#>  7        90100 Butterflyfish Ornate But… Chaetodon Orn…            19      7.48
+#>  8        90110 Shark         Swell Shark Cephaloscylli…           102     40.2 
+#>  9        90120 Ray           Bat Ray     Myliobatis ca…            56     22.0 
+#> 10        90130 Eel           California… Gymnothorax m…           150     59.1 
 #> # ℹ 18 more rows
+#> # ℹ 2 more variables: Notes <chr>, Graphic <blob>
 ```
 
 ### Handling Incorrect Character Encoding
