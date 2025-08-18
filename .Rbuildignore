@@ -1,0 +1,11 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^LICENSE\.md$
+^src/*\.o$
+^src/*\.so$
+^src/*\.dll$
+^src/*\.def$
+^\.github$
+^README\.Rmd$
+^README\.html$
+^cran-comments\.md$

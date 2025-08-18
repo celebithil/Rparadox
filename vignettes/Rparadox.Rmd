@@ -1,0 +1,62 @@
+---
+title: "Introduction to Rparadox"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Introduction to Rparadox}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Introduction
+
+The Rparadox package provides tools to read data from Paradox database files (`.db`) directly into R. This vignette will walk you through the basic usage of the package.
+
+## Installation
+
+You can install the development version from GitHub:
+
+```{r, eval=FALSE}
+# install.packages("devtools")
+devtools::install_github("celebithil/Rparadox")
+```
+
+## Basic Usage
+
+The main workflow involves opening a file, reading the data, and then closing the file.
+
+```{r basic-example}
+library(Rparadox)
+
+# Get the path to an example database included with the package
+db_path <- system.file("extdata", "biolife.db", package = "Rparadox")
+
+# Open the file handle
+pxdoc <- pxlib_open_file(db_path)
+
+# Read data and close the handle
+if (!is.null(pxdoc)) {
+  biolife_data <- pxlib_get_data(pxdoc)
+  pxlib_close_file(pxdoc)
+}
+
+# Display the first few rows of the resulting tibble
+head(biolife_data)
+```
+
+## Handling Character Encodings
+
+For legacy files with incorrect encoding information in the header, you can specify the correct encoding manually.
+
+```{r, eval=FALSE}
+# Example for a file known to be in the CP866 encoding
+pxdoc <- pxlib_open_file("path/to/your/file.db", encoding = "cp866")
+```
+
+This ensures that text is correctly converted to UTF-8.
