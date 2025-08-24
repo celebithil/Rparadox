@@ -17,7 +17,6 @@
  *    Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  *    Boston, MA 02111-1307, USA.
  */
-
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -37,6 +36,10 @@
 #include <Winbase.h>
 #endif
 
+#include <R.h>
+#include <Rinternals.h>
+#include <R_ext/Riconv.h>
+
 #include "pxversion.h"
 #include "px_intern.h"
 #include "paradox-gsf.h"
@@ -47,7 +50,6 @@
 #include "px_misc.h"
 #include "px_encode.h"
 #include "px_crypt.h"
-#include <R.h>
 
 #ifndef WIN32
 #define max(a,b) ((a)>(b) ? (a) : (b))
@@ -181,8 +183,8 @@ PX_new3(void  (*errorhandler)(pxdoc_t *p, int type, const char *msg, void *data)
 
 	pxdoc->last_position = -1;
 
-	pxdoc->in_iconvcd = (iconv_t) -1;
-	pxdoc->out_iconvcd = (iconv_t) -1;
+	pxdoc->in_iconvcd = (Riconv_t) -1;
+	pxdoc->out_iconvcd = (Riconv_t) -1;
 
 	pxdoc->targetencoding = NULL;
 	pxdoc->inputencoding = NULL;
@@ -2553,10 +2555,10 @@ PX_delete(pxdoc_t *pxdoc) {
 	 */
 	PX_close(pxdoc);
 
-	if((intptr_t) pxdoc->out_iconvcd > 0)
-		iconv_close(pxdoc->out_iconvcd);
-	if((intptr_t) pxdoc->in_iconvcd > 0)
-		iconv_close(pxdoc->in_iconvcd);
+	if(pxdoc->out_iconvcd != (Riconv_t)(-1))
+	  Riconv_close(pxdoc->out_iconvcd);
+	if(pxdoc->in_iconvcd != (Riconv_t)(-1))
+	  Riconv_close(pxdoc->in_iconvcd);
 
 	if(pxdoc->targetencoding)
 		pxdoc->free(pxdoc, pxdoc->targetencoding);
@@ -3371,9 +3373,10 @@ PX_get_data_alpha(pxdoc_t *pxdoc, char *data, int len, char **value) {
 	}
 
 	if(pxdoc->targetencoding != NULL) {
-		size_t ilen;
-		char *iptr, *optr;
-		int res;
+	  size_t ilen;
+	  const char *iptr;
+	  char *optr;
+		size_t res;
 		/* Worst case for length of output buffer. If conversion from 1 byte
 		 * to 2 byte chars takes place
 		 */
@@ -3382,14 +3385,14 @@ PX_get_data_alpha(pxdoc_t *pxdoc, char *data, int len, char **value) {
 		 * We use free because the memory allocated by recode_buffer_to_buffer()
 		 * is requested with malloc and must be freed with free.
 		 */
-		optr = obuf = (char *) malloc(olen);
-		iptr = data;
-		ilen = 0;
+    optr = obuf = (char *) malloc(olen);
+    iptr = data;
+    ilen = 0;
 		while(iptr[ilen] != '\0' && ilen < (size_t) len)
 			ilen++;
 //		printf("data(%d) = '%s'\n", ilen, data);
 //		printf("obuf(%d) = '%s'\n", olen, obuf);
-		if(0 > (res = iconv(pxdoc->out_iconvcd, &iptr, &ilen, &optr, &olen))) {
+    if((size_t)-1 == (res = Riconv(pxdoc->out_iconvcd, &iptr, &ilen, &optr, &olen)))  {
 			*value = NULL;
 			free(obuf);
 			return -1;
@@ -3811,8 +3814,9 @@ PX_put_data_alpha(pxdoc_t *pxdoc, char *data, int len, char *value) {
 	}
 
 	if(pxdoc->targetencoding != NULL) {
-		size_t ilen = strlen(value);
-		char *iptr, *optr;
+    size_t ilen = strlen(value);
+	  const char *iptr;
+	  char *optr;
 		olen = len + 1;
 		/* Do not pxdoc->malloc because the memory is freed with free
 		 * We use free because the memory allocated by recode_buffer_to_buffer()
@@ -3822,7 +3826,7 @@ PX_put_data_alpha(pxdoc_t *pxdoc, char *data, int len, char *value) {
 		iptr = value;
 //		printf("value(%d) = '%s'\n", ilen, value);
 //		printf("obuf(%d) = '%s'\n", olen, obuf);
-		if(0 > (res = iconv(pxdoc->in_iconvcd, &iptr, &ilen, &optr, &olen))) {
+  if((size_t)-1 == (res = Riconv(pxdoc->in_iconvcd, &iptr, &ilen, &optr, &olen))) {
 			memset(data, 0, len);
 			free(obuf);
 			return;

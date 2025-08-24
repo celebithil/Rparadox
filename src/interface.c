@@ -10,12 +10,11 @@
  * them record by record.
  */
 
-#include <R.h>          // Standard R header for C extensions
-#include <Rinternals.h> // R SEXP objects and functions
+#include <R.h>
+#include <Rinternals.h>
+#include <R_ext/Riconv.h>
 #include <stdlib.h>     // For malloc, free, realloc
 #include <string.h>     // For strcmp, strlen, memcpy
-#include <iconv.h>      // For re-encoding character strings to UTF-8
-
 #include "paradox.h"    // pxlib main header, contains pxdoc_t, pxval_t, pxfield_t etc.
 
 // Forward declarations for static helper functions.
@@ -111,12 +110,12 @@ SEXP pxlib_open_file_c(SEXP filename_sexp, SEXP encoding_sexp) {
   if (source_encoding_str != NULL) {
     const char* target_encoding = "UTF-8";
     
-    if (pxdoc->out_iconvcd != (iconv_t)(-1)) {
-      iconv_close(pxdoc->out_iconvcd);
+    if (pxdoc->out_iconvcd != (Riconv_t)(-1)) {
+      Riconv_close(pxdoc->out_iconvcd);
     }
-    pxdoc->out_iconvcd = iconv_open(target_encoding, source_encoding_str);
+    pxdoc->out_iconvcd = Riconv_open(target_encoding, source_encoding_str);
     
-    if (pxdoc->out_iconvcd == (iconv_t)(-1)) {
+    if (pxdoc->out_iconvcd == (Riconv_t)(-1)) {
       Rf_warning("Failed to set up encoding conversion from '%s' to '%s'.",
                  source_encoding_str, target_encoding);
     } else {
@@ -397,14 +396,14 @@ static char* re_encode_string_to_utf8(pxdoc_t* pxdoc, const char* input_str) {
     return NULL;
   }
   
-  char* input_ptr = (char*) input_str;
+  const char* input_ptr = (const char*) input_str;
   char* output_ptr = output_buf;
   size_t output_len_remaining = output_len;
   
   // Reset iconv state before each conversion.
-  iconv(pxdoc->out_iconvcd, NULL, NULL, NULL, NULL);
+  Riconv(pxdoc->out_iconvcd, NULL, NULL, NULL, NULL);
   
-  size_t result = iconv(pxdoc->out_iconvcd, &input_ptr, &input_len, &output_ptr, &output_len_remaining);
+  size_t result = Riconv(pxdoc->out_iconvcd, &input_ptr, &input_len, &output_ptr, &output_len_remaining);
   *output_ptr = '\0'; // Null-terminate the output string.
   
   if (result == (size_t)-1) {

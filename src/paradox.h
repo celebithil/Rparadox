@@ -2,7 +2,8 @@
 #define __PARADOX_H__
 
 #include <stdio.h>
-#include <iconv.h>
+
+typedef void* Riconv_t;
 
 #ifdef WIN32
 
@@ -23,7 +24,7 @@ typedef SSIZE_T ssize_t;
 #endif  /* !PXLIB_DLL */
 
 #endif /* !WIN32 */
-
+  
 #ifndef PXLIB_CALL
 #define PXLIB_CALL
 #endif
@@ -206,8 +207,8 @@ struct px_doc {
 
 	char *targetencoding;
 	char *inputencoding;
-	iconv_t out_iconvcd;  /* Encoding of written data */
-	iconv_t in_iconvcd;   /* Encoding of read data */
+	Riconv_t out_iconvcd;   /* Encoding of written data */
+	Riconv_t in_iconvcd;    /* Encoding of read data */
 
 	long curblocknr;      /* Number of current block in cache (0-n) */
 	int curblockdirty;    /* Set to px_true if the block needs to be written */
@@ -541,12 +542,3 @@ PXLIB_API char * PXLIB_CALL
 PX_strdup(pxdoc_t *pxdoc, const char *str);
 
 #endif
-
-/*
- * Local variables:
- * tab-width: 4
- * c-basic-offset: 4
- * End:
- * vim600: sw=4 ts=4 fdm=marker
- * vim<600: sw=4 ts=4
- */

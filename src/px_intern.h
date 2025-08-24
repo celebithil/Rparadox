@@ -1,6 +1,7 @@
 #ifndef __PX_INTERN_H__
 #define __PX_INTERN_H__
 
+#define GETTEXT_PACKAGE "pxlib"
 #ifdef ENABLE_NLS
 #include <libintl.h>
 #define _(a) dgettext(GETTEXT_PACKAGE, a)
