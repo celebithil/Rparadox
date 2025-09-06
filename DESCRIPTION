@@ -1,6 +1,6 @@
 Package: Rparadox
 Title: Read Paradox Database Files into R
-Version: 0.1.0
+Version: 0.1.1
 Authors@R: 
     person(given = "Daniil",
            family = "Popov",
@@ -27,4 +27,4 @@ Suggests:
 Config/testthat/edition: 3
 URL: https://github.com/celebithil/Rparadox
 BugReports: https://github.com/celebithil/Rparadox/issues
-VignetteBuilder: knitr
+VignetteBuilder: knitr, rmarkdown

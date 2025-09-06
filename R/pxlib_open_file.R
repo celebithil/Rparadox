@@ -25,17 +25,20 @@
 #'   opened, or `NULL` if an error occurs (e.g., file not found).
 #' @export
 #' @examples
-#' \dontrun{
-#'   # Example 1: Open a file using the encoding from its header
-#'   db_path <- system.file("extdata", "biolife.db", package = "Rparadox")
-#'   pxdoc <- pxlib_open_file(db_path)
-#'   if (!is.null(pxdoc)) {
-#'     # ... read data ...
-#'     pxlib_close_file(pxdoc)
-#'   }
+#' # Example 1: Open a bundled demo file (biolife.db)
+#' db_path <- system.file("extdata", "biolife.db", package = "Rparadox")
+#' pxdoc <- pxlib_open_file(db_path)
+#' if (!is.null(pxdoc)) {
+#'   # normally you'd read data here
+#'   pxlib_close_file(pxdoc)
+#' }
 #'
-#'   # Example 2: Open a file, overriding its encoding to CP866
-#'   # pxdoc <- pxlib_open_file("path/to/my/file.db", encoding = "cp866")
+#' # Example 2: Open a file with overridden encoding (of_cp866.db)
+#' db_path2 <- system.file("extdata", "of_cp866.db", package = "Rparadox")
+#' pxdoc2 <- pxlib_open_file(db_path2, encoding = "cp866")
+#' if (!is.null(pxdoc2)) {
+#'   # read some data ...
+#'   pxlib_close_file(pxdoc2)
 #' }
 pxlib_open_file <- function(path, encoding = NULL) {
   # --- 1. Input Validation ---

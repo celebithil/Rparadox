@@ -369,6 +369,7 @@ static SEXP px_to_sexp(pxdoc_t* pxdoc, pxval_t* val, int px_ftype) {
     }
     
     free(safe_buffer); // Free the temporary buffer
+    free(val->value.str.val);
     return r_string;
   }
   // --- True Binary Types ---
@@ -384,6 +385,7 @@ static SEXP px_to_sexp(pxdoc_t* pxdoc, pxval_t* val, int px_ftype) {
     SEXP raw_vec = PROTECT(allocVector(RAWSXP, val->value.str.len));
     memcpy(RAW(raw_vec), val->value.str.val, val->value.str.len);
     UNPROTECT(1);
+    free(val->value.str.val);
     return raw_vec;
   // --- Other Types (Numeric, Logical, Date/Time) ---
   case pxfShort: case pxfLong: case pxfAutoInc:

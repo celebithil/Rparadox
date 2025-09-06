@@ -37,30 +37,21 @@
 #' @importFrom hms as_hms
 #' @export
 #' @examples
-#' \dontrun{
-#'   # Define the path to the example database included with the package
-#'   db_path <- system.file("extdata", "biolife.db", package = "Rparadox")
+#' # Define the path to the demo database included with the package
+#' db_path <- system.file("extdata", "biolife.db", package = "Rparadox")
 #'
-#'   # Open the file handle. This also automatically attaches the .mb file.
-#'   pxdoc <- pxlib_open_file(db_path)
+#' # Open the file handle
+#' pxdoc <- pxlib_open_file(db_path)
 #'
-#'   # Ensure the file was opened successfully before proceeding
-#'   if (!is.null(pxdoc)) {
-#'     # Read all data from the file into a tibble
-#'     biolife_data <- pxlib_get_data(pxdoc)
+#' if (!is.null(pxdoc)) {
+#'   # Read all data into a tibble
+#'   biolife_data <- pxlib_get_data(pxdoc)
 #'
-#'     # It's good practice to close the file handle when done
-#'     pxlib_close_file(pxdoc)
+#'   # Always close the file handle when finished
+#'   pxlib_close_file(pxdoc)
 #'
-#'     # Now you can work with the data
-#'     print(biolife_data)
-#'
-#'     # Example of using the data with dplyr:
-#'     # library(dplyr)
-#'     # biolife_data %>%
-#'     #   filter(Length_cm > 200) %>%
-#'     #   select(Common_Name, Length_cm)
-#'   }
+#'   # Work with the data
+#'   print(biolife_data)
 #' }
 pxlib_get_data <- function(pxdoc) {
   # --- Step 1: Validate Input ---

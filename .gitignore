@@ -21,3 +21,5 @@ src/*.def
 .Rcheck/
 vignettes/*.html
 inst/doc
+/doc/
+/Meta/
