@@ -1,4 +1,8 @@
 
+[![CRAN
+status](https://www.r-pkg.org/badges/version/Rparadox)](https://CRAN.R-project.org/package=Rparadox)
+[![CRAN
+downloads](https://cranlogs.r-pkg.org/badges/Rparadox)](https://CRAN.R-project.org/package=Rparadox)
 [![Ask
 DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/celebithil/Rparadox)
 
@@ -34,6 +38,11 @@ associated BLOB/memo file (`.mb`).
 ------------------------------------------------------------------------
 
 ## Installation
+
+``` r
+# stable version from CRAN
+install.packages("Rparadox")
+```
 
 You can install the development version of Rparadox from GitHub using
 the `devtools` package.

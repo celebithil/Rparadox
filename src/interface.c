@@ -394,11 +394,20 @@ static SEXP px_to_sexp(pxdoc_t* pxdoc, pxval_t* val, int px_ftype) {
     return ScalarReal(val->value.dval);
   case pxfLogical:
     return ScalarLogical(val->value.lval);
-  case pxfDate:
+  case pxfDate: {
+    long date_val = val->value.lval;
     // Paradox dates are days since 1899-12-30. R dates are days since 1970-01-01.
     // Conversion: Paradox_Date - R_Epoch_Offset.
-    if (val->value.lval <= 0) return R_NilValue; // Handle invalid/null dates.
-    return ScalarReal((double)val->value.lval - 719163.0);
+    // Handle invalid/null dates. A valid date should not be <= 0.
+    // Also, very large positive values often represent blank/null dates in Paradox files.
+    // A value like 3,000,000 corresponds to a date far in the future (around year 10100),
+    // making it a safe upper bound to filter out garbage values.
+    static const long PARADOX_DATE_UPPER_BOUND = 3000000L;
+    if (date_val <= 0 || date_val > PARADOX_DATE_UPPER_BOUND) {
+      return R_NilValue;
+    }
+    return ScalarReal((double)date_val - 719163.0);
+  }
   case pxfTime:
     // Paradox times are milliseconds since midnight. R 'hms' uses seconds.
     if (val->value.lval < 0) return R_NilValue;

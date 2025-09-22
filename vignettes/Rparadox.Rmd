@@ -20,6 +20,11 @@ The Rparadox package provides tools to read data from Paradox database files (`.
 
 ## Installation
 
+```{r, eval=FALSE}
+# stable version from CRAN
+install.packages("Rparadox")
+``` 
+
 You can install the development version from GitHub:
 
 ```{r, eval=FALSE}

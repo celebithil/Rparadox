@@ -23,3 +23,5 @@ vignettes/*.html
 inst/doc
 /doc/
 /Meta/
+cran-comments.md
+CRAN-SUBMISSION

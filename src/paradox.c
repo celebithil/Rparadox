@@ -513,7 +513,7 @@ PX_open_file(pxdoc_t *pxdoc, const char *filename) {
 		return -1;
 	}
 
-	if((fp = fopen(filename, "rb+")) == NULL) {
+	if((fp = fopen(filename, "rb")) == NULL) {
 		px_error(pxdoc, PX_RuntimeError, _("Could not open file of paradox database: %s"), strerror(errno));
 		return -1;
 	}
@@ -2963,7 +2963,7 @@ PX_open_blob_file(pxblob_t *pxblob, const char *filename) {
 		return(-1);
 	}
 
-	if((fp = fopen(filename, "rb+")) == NULL) {
+	if((fp = fopen(filename, "rb")) == NULL) {
 		return -1;
 	}
 
@@ -3358,67 +3358,71 @@ PX_read_graphicdata(pxblob_t *pxblob, const char *data, int len, int *mod, int *
 /* PX_get_data_alpha() {{{
  * Extracts an alpha field value from a data block
  */
+/* In file: src/paradox.c */
+
 PXLIB_API int PXLIB_CALL
 PX_get_data_alpha(pxdoc_t *pxdoc, char *data, int len, char **value) {
-	char *buffer, *obuf = NULL;
-	size_t olen;
-
-	if(data[0] == '\0') {
-		*value = NULL;
-		return 0;
-	}
-
-	if(pxdoc->targetencoding != NULL) {
-	  size_t ilen;
-	  const char *iptr;
-	  char *optr;
-		size_t res;
-		/* Worst case for length of output buffer. If conversion from 1 byte
-		 * to 2 byte chars takes place
-		 */
-		olen = 2*len + 1;
-		/* Do not pxdoc->malloc because the memory is freed with free
-		 * We use free because the memory allocated by recode_buffer_to_buffer()
-		 * is requested with malloc and must be freed with free.
-		 */
+  char *buffer, *obuf = NULL;
+  size_t olen;
+  size_t actual_len = 0;
+  
+  if(data[0] == '\0') {
+    *value = NULL;
+    return 0;
+  }
+  
+  // SAFELY DETERMINE THE STRING LENGTH
+  // Find the end of the string, but do not read past the allocated buffer size (len).
+  while (actual_len < (size_t)len && data[actual_len] != '\0') {
+    actual_len++;
+  }
+  
+  if(pxdoc->targetencoding != NULL) {
+    const char *iptr;
+    char *optr;
+    size_t res;
+    size_t ilen = actual_len; // Use the safe length
+    
+    // olen must be large enough to handle re-encoding (e.g., to UTF-8).
+    olen = 2 * ilen + 1;
     optr = obuf = (char *) malloc(olen);
+    if (obuf == NULL) {
+      *value = NULL;
+      return -1; // Memory allocation error
+    }
     iptr = data;
-    ilen = 0;
-		while(iptr[ilen] != '\0' && ilen < (size_t) len)
-			ilen++;
-//		printf("data(%d) = '%s'\n", ilen, data);
-//		printf("obuf(%d) = '%s'\n", olen, obuf);
+    
+    Riconv(pxdoc->out_iconvcd, NULL, NULL, NULL, NULL); // Reset iconv state
     if((size_t)-1 == (res = Riconv(pxdoc->out_iconvcd, &iptr, &ilen, &optr, &olen)))  {
-			*value = NULL;
-			free(obuf);
-			return -1;
-		}
-		*optr = '\0';
-//		printf("data(%d) = '%s'\n", ilen, data);
-//		printf("obuf(%d) = '%s'\n", olen, obuf);
-		olen = optr-obuf;
-	} else {
-		olen = len;
-		obuf = data;
-	}
-	/* Copy the encoded string into memory which belongs to pxlib */
-	buffer = (char *) pxdoc->malloc(pxdoc, olen+1, _("Allocate memory for field data."));
-	if(!buffer) {
-		if(pxdoc->targetencoding != NULL) {
-			free(obuf);
-		}
-		*value = NULL;
-		return -1;
-	}
-	memcpy(buffer, obuf, olen);
-	buffer[olen] = '\0';
-	*value = buffer;
-
-	if(pxdoc->targetencoding != NULL) {
-		free(obuf);
-	}
-
-	return 1;
+      *value = NULL;
+      free(obuf);
+      return -1;
+    }
+    *optr = '\0';
+    olen = optr-obuf;
+  } else {
+    olen = actual_len;
+    obuf = data;
+  }
+  
+  /* Copy the re-encoded string into memory managed by pxlib. */
+  buffer = (char *) pxdoc->malloc(pxdoc, olen + 1, _("Allocate memory for field data."));
+  if(!buffer) {
+    if(pxdoc->targetencoding != NULL) {
+      free(obuf);
+    }
+    *value = NULL;
+    return -1;
+  }
+  memcpy(buffer, obuf, olen);
+  buffer[olen] = '\0';
+  *value = buffer;
+  
+  if(pxdoc->targetencoding != NULL) {
+    free(obuf);
+  }
+  
+  return 1;
 }
 /* }}} */
 

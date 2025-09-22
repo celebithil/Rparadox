@@ -1,3 +1,22 @@
+# Rparadox 0.1.2
+
+## Bug fixes and improvements
+
+* Fixed CRAN check issues on Debian: package no longer attempts to open
+  Paradox files in write mode (`rb+` → `rb`).
+  This ensures full compliance with CRAN Policy (no writes outside of
+  temporary directories).
+* Fixed heap-buffer-overflow in `PX_get_data_alpha` (discovered with
+  AddressSanitizer). Now the function safely respects field length and
+  prevents out-of-bounds reads for fixed-length strings without `\0`.
+* Improved handling of invalid/null Paradox dates with an upper bound
+  filter for extreme values.
+* Added proper `.gitignore` entries for `cran-comments.md` and
+  `CRAN-SUBMISSION`.
+* Updated README with CRAN badges and installation instructions.
+* Expanded test coverage: re-enabled datasets with German, English and
+  Russian encodings, including CP866.
+
 # Rparadox 0.1.1
 
 ## Bug fixes and improvements

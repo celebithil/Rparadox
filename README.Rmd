@@ -10,6 +10,8 @@ knitr::opts_chunk$set(
   out.width = "100%"
 )
 ```
+[![CRAN status](https://www.r-pkg.org/badges/version/Rparadox)](https://CRAN.R-project.org/package=Rparadox)
+[![CRAN downloads](https://cranlogs.r-pkg.org/badges/Rparadox)](https://CRAN.R-project.org/package=Rparadox)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/celebithil/Rparadox)
 
 # Rparadox: A Modern Interface for Reading Paradox Databases in R
@@ -31,6 +33,11 @@ This package is designed to "just work" for the most common use case: extracting
 
 ***
 ## Installation
+
+```{r, eval=FALSE}
+# stable version from CRAN
+install.packages("Rparadox")
+``` 
 
 You can install the development version of Rparadox from GitHub using the `devtools` package.
 
