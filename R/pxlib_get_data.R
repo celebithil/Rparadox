@@ -35,6 +35,7 @@
 #' @importFrom tibble as_tibble tibble
 #' @importFrom blob as_blob
 #' @importFrom hms as_hms
+#' @importFrom stringi stri_encode
 #' @export
 #' @examples
 #' # Define the path to the demo database included with the package
@@ -74,7 +75,28 @@ pxlib_get_data <- function(pxdoc) {
     return(tibble::tibble())
   }
   
-  # --- Step 4: Identify Binary (BLOB) Columns ---
+  # --- STEP 4: Recoding of character data and COLUMN NAMES ---
+  # This section handles encoding conversion for both column names and character data in the dataset.
+  db_encoding <- attr(pxdoc, "px_encoding")
+  
+  if (!is.null(db_encoding) && nzchar(db_encoding)) {
+    original_names <- names(data_list)
+    converted_names <- stri_encode(original_names, from = db_encoding, to = "UTF-8")
+    # Assign new, recoded names
+    names(data_list) <- converted_names
+    
+    # Recoding of data in columns
+    is_char_col <- sapply(data_list, is.character)
+    char_indices <- which(is_char_col)
+    
+    if (length(char_indices) > 0) {
+      data_list[char_indices] <- lapply(data_list[char_indices], function(col) {
+        stri_encode(col, from = db_encoding, to = "UTF-8")
+      })
+    }
+  }
+  
+  # --- Step 5: Identify Binary (BLOB) Columns ---
   # The C code is designed to return binary columns as a list of raw vectors (VECSXP).
   # We can therefore identify these columns simply by checking which elements of the
   # main list are themselves lists. This is a clean and robust way to distinguish
@@ -82,7 +104,7 @@ pxlib_get_data <- function(pxdoc) {
   is_list_col <- sapply(data_list, is.list)
   binary_indices <- which(is_list_col)
   
-  # --- Step 5: Convert Binary Columns to 'blob' Objects ---
+  # --- Step 6: Convert Binary Columns to 'blob' Objects ---
   # If any binary columns were found, iterate over them and apply the
   # `blob::as_blob` function. This converts the list of raw vectors into a
   # proper 'blob' column type, making it easy to work with in R.
@@ -90,12 +112,12 @@ pxlib_get_data <- function(pxdoc) {
     data_list[binary_indices] <- lapply(data_list[binary_indices], blob::as_blob)
   }
   
-  # --- Step 6: Convert the List to a Tibble ---
+  # --- Step 7: Convert the List to a Tibble ---
   # `tibble::as_tibble()` efficiently converts the named list of vectors into a
   # modern data frame (a tibble).
   data_tbl <- tibble::as_tibble(data_list)
   
-  # --- Step 7: Final Type Coercion for Time Columns ---
+  # --- Step 8: Final Type Coercion for Time Columns ---
   # For robustness across different R environments, this loop ensures
   # that any column with the 'hms' class (set by the C code) is correctly
   # interpreted and handled by the 'hms' package.
@@ -106,6 +128,6 @@ pxlib_get_data <- function(pxdoc) {
     }
   }
   
-  # --- Step 8: Return the Final Tibble ---
+  # --- Step 9: Return the Final Tibble ---
   return(data_tbl)
 }

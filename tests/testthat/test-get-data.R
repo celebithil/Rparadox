@@ -107,7 +107,7 @@ test_that("pxlib_get_data reads Russian file with empty doscodepage correctly", 
   db_path <- system.file("extdata", "of.db", package = "Rparadox")
 
   # --- Action: Open the file and get data ---
-  px_doc <- pxlib_open_file(db_path, encoding = "cp866")
+  px_doc <- pxlib_open_file(db_path, encoding = "CP866")
   data_tbl <- pxlib_get_data(px_doc)
   pxlib_close_file(px_doc)
 
@@ -125,29 +125,29 @@ test_that("pxlib_get_data reads Russian file with empty doscodepage correctly", 
   )
 })
 
-# # Test case 6: An Russian file with doscodepage cp866
-# test_that("pxlib_get_data reads Russian file with doscodepage cp866 correctly", {
-#   # Path to the test database
-#   db_path <- system.file("extdata", "of_cp866.db", package = "Rparadox")
-# 
-#   # --- Action: Open the file and get data ---
-#   px_doc <- pxlib_open_file(db_path)
-#   data_tbl <- pxlib_get_data(px_doc)
-#   pxlib_close_file(px_doc)
-# 
-#   # --- Assertions ---
-#   # 1. Check that the result is a tibble
-#   expect_s3_class(data_tbl, "tbl_df")
-# 
-#   # 2. Compare the result with its corresponding reference file
-#   ref_path <- test_path("ref_of.rds")
-#   expect_identical(
-#     object = data_tbl,
-#     expected = readRDS(ref_path),
-#     label = "Data loaded from of.db",
-#     expected.label = "Reference data from ref_of.rds"
-#   )
-# })
+# Test case 6: An Russian file with doscodepage CP866
+test_that("pxlib_get_data reads Russian file with doscodepage CP866 correctly", {
+  # Path to the test database
+  db_path <- system.file("extdata", "of_cp866.db", package = "Rparadox")
+
+  # --- Action: Open the file and get data ---
+  px_doc <- pxlib_open_file(db_path)
+  data_tbl <- pxlib_get_data(px_doc)
+  pxlib_close_file(px_doc)
+
+  # --- Assertions ---
+  # 1. Check that the result is a tibble
+  expect_s3_class(data_tbl, "tbl_df")
+
+  # 2. Compare the result with its corresponding reference file
+  ref_path <- test_path("ref_of.rds")
+  expect_identical(
+    object = data_tbl,
+    expected = readRDS(ref_path),
+    label = "Data loaded from of.db",
+    expected.label = "Reference data from ref_of.rds"
+  )
+})
 
 # Test case 7: An empty file
 test_that("pxlib_get_data handles an empty table gracefully", {
