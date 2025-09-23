@@ -20,18 +20,18 @@ knitr::opts_chunk$set(
 
 This package is designed to "just work" for the most common use case: extracting the full dataset from a Paradox table, including its associated BLOB/memo file (`.mb`).
 
+------------------------------------------------------------------------
 
-
-***
 ## Features
 
-* **Direct Reading:** Reads Paradox `.db` files without needing database drivers or external software.
-* **Tibble Output:** Returns data in the `tibble` format, which is fully compatible with the Tidyverse ecosystem.
-* **Automatic BLOB Handling:** Automatically detects, attaches, and reads data from associated memo/BLOB (`.mb`) files.
-* **Character Encoding Control:** Automatically handles character encoding conversion to UTF-8 and allows the user to manually override the source encoding for files with incorrect headers.
-* **Type Conversion:** Correctly maps Paradox data types to their corresponding R types, including `Date`, `Time` (`hms`), `Timestamp` (`POSIXct`), `Logical`, `Integer`, `Numeric`, and binary `blob` objects.
+-   **Direct Reading:** Reads Paradox `.db` files without needing database drivers or external software.
+-   **Tibble Output:** Returns data in the `tibble` format, which is fully compatible with the Tidyverse ecosystem.
+-   **Automatic BLOB Handling:** Automatically detects, attaches, and reads data from associated memo/BLOB (`.mb`) files.
+-   **Character Encoding Control:** Automatically handles character encoding conversion to UTF-8 and allows the user to manually override the source encoding for files with incorrect headers.
+-   **Type Conversion:** Correctly maps Paradox data types to their corresponding R types, including `Date`, `Time` (`hms`), `Timestamp` (`POSIXct`), `Logical`, `Integer`, `Numeric`, and binary `blob` objects.
 
-***
+------------------------------------------------------------------------
+
 ## Installation
 
 ```{r, eval=FALSE}
@@ -46,14 +46,13 @@ You can install the development version of Rparadox from GitHub using the `devto
 devtools::install_github("celebithil/Rparadox")
 ```
 
-***
+------------------------------------------------------------------------
+
 ## Usage
 
-Using the package involves two main functions: `pxlib_open_file()` to open a connection to the database and `pxlib_get_data()` to read the data. The connection is then closed with `pxlib_close_file()`.
+### Basic Usage: The `read_paradox()` function
 
-### Basic Example
-
-This example reads a simple Paradox file included with the package. The code below is executed live when this README is generated, ensuring the output is always accurate.
+The easiest way to read a Paradox file is with the high-level `read_paradox()` function. It handles opening the file, reading the data, and closing the connection in a single step.
 
 ```{r example}
 # 1. Load the package
@@ -62,35 +61,52 @@ library(Rparadox)
 # 2. Get the path to an example database
 db_path <- system.file("extdata", "biolife.db", package = "Rparadox")
 
-# 3. Open the file
-# This automatically finds and attaches the 'biolife.mb' BLOB file.
-pxdoc <- pxlib_open_file(db_path)
+# 3. Read the data directly into a tibble
+# This automatically finds 'biolife.mb' and handles data types.
+biolife_data <- read_paradox(db_path)
 
-# 4. Read the data into a tibble
-if (!is.null(pxdoc)) {
-  biolife_data <- pxlib_get_data(pxdoc)
-
-  # 5. Always close the file when you're done
-  pxlib_close_file(pxdoc)
-  
-  # 6. View the data
-  print(biolife_data)
-}
+# 4. View the data
+print(biolife_data)
 ```
-
-![biolife.db](man/figures/demo.jpg)
 
 ### Handling Incorrect Character Encoding
 
-If you have a legacy file where the encoding is specified incorrectly in the header (e.g., it says ASCII but is actually CP866), you can manually override it using the `encoding` parameter.
+If you have a legacy file where the encoding is specified incorrectly in the header, you can manually override it using the `encoding` parameter with `read_paradox()`.
 
 ```{r, eval=FALSE}
+library(Rparadox)
 # This tells the package to interpret the source data as CP866
-pxdoc <- pxlib_open_file("path/to/your/file.db", encoding = "cp866")
-
-# The rest of the process is the same
-data <- pxlib_get_data(pxdoc)
-pxlib_close_file(pxdoc)
+data <- read_paradox("path/to/your/file.db", encoding = "cp866")
 ```
 
 This ensures that all text fields are correctly converted to UTF-8 in the final `tibble`.
+
+### Advanced Usage
+
+For more control, you can use the lower-level functions. This is useful if you want to inspect metadata before reading the full dataset.
+
+```{r advanced-usage}
+library(Rparadox)
+db_path <- system.file("extdata", "biolife.db", package = "Rparadox")
+
+# 1. Open the file and get a handle
+pxdoc <- pxlib_open_file(db_path)
+
+if (!is.null(pxdoc)) {
+  # 2. Get metadata without reading all the data
+  metadata <- pxlib_metadata(pxdoc)
+  cat("Number of records:", metadata$num_records, "\n")
+  
+  # 3. Read the actual data
+  data_table <- pxlib_get_data(pxdoc)
+  
+  # 4. Always close the file when you're done
+  pxlib_close_file(pxdoc)
+}
+```
+
+## Links
+-   pxlib C library: <https://github.com/steinm/pxlib>
+-   CRAN page: <https://CRAN.R-project.org/package=Rparadox>
+-   Documentation: <https://cran.r-project.org/web/packages/Rparadox/Rparadox.pdf>
+-   Bug reports: <https://github.com/celebithil/Rparadox/issues>

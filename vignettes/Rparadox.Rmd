@@ -12,11 +12,13 @@ knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>"
 )
+# Load the package once for the entire vignette
+library(Rparadox)
 ```
 
 ## Introduction
 
-The Rparadox package provides tools to read data from Paradox database files (`.db`) directly into R. This vignette will walk you through the basic usage of the package.
+The Rparadox package provides tools to read data from Paradox database files (`.db`) directly into R. This vignette will walk you through the basic and advanced usage of the package.
 
 ## Installation
 
@@ -32,24 +34,16 @@ You can install the development version from GitHub:
 devtools::install_github("celebithil/Rparadox")
 ```
 
-## Basic Usage
+## Basic Usage with `read_paradox()`
 
-The main workflow involves opening a file, reading the data, and then closing the file.
+The simplest way to read a Paradox file is with the `read_paradox()` wrapper function. It handles the entire workflow of opening the file, reading the data, and closing the connection for you.
 
 ```{r basic-example}
-library(Rparadox)
-
 # Get the path to an example database included with the package
 db_path <- system.file("extdata", "biolife.db", package = "Rparadox")
 
-# Open the file handle
-pxdoc <- pxlib_open_file(db_path)
-
-# Read data and close the handle
-if (!is.null(pxdoc)) {
-  biolife_data <- pxlib_get_data(pxdoc)
-  pxlib_close_file(pxdoc)
-}
+# Read the data in a single step
+biolife_data <- read_paradox(db_path)
 
 # Display the first few rows of the resulting tibble
 head(biolife_data)
@@ -57,11 +51,39 @@ head(biolife_data)
 
 ## Handling Character Encodings
 
-For legacy files with incorrect encoding information in the header, you can specify the correct encoding manually.
+For legacy files with incorrect encoding information in the header, you can specify the correct encoding manually with the `encoding` argument.
 
 ```{r, eval=FALSE}
 # Example for a file known to be in the CP866 encoding
-pxdoc <- pxlib_open_file("path/to/your/file.db", encoding = "cp866")
+my_data <- read_paradox("path/to/your/file.db", encoding = "cp866")
 ```
 
 This ensures that text is correctly converted to UTF-8.
+
+## Advanced Usage: Metadata and Manual Control
+
+If you need more control, for instance, to check a file's metadata before committing to reading a large dataset, you can use the lower-level functions.
+
+The workflow is:
+1.  `pxlib_open_file()` to get a file handle.
+2.  `pxlib_metadata()` to inspect metadata (optional).
+3.  `pxlib_get_data()` to read the data.
+4.  `pxlib_close_file()` to release the connection.
+
+```{r advanced-example}
+# This chunk uses the db_path defined in the previous chunk
+# Open the file handle
+pxdoc <- pxlib_open_file(db_path)
+
+if (!is.null(pxdoc)) {
+  # Get and print metadata
+  metadata <- pxlib_metadata(pxdoc)
+  print(metadata$fields)
+  
+  # Read the full dataset
+  data_from_handle <- pxlib_get_data(pxdoc)
+  
+  # IMPORTANT: Always close the file handle
+  pxlib_close_file(pxdoc)
+}
+```

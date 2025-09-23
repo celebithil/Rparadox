@@ -2,9 +2,12 @@
 
 export(pxlib_close_file)
 export(pxlib_get_data)
+export(pxlib_metadata)
 export(pxlib_open_file)
+export(read_paradox)
 importFrom(blob,as_blob)
 importFrom(hms,as_hms)
+importFrom(stringi,stri_encode)
 importFrom(tibble,as_tibble)
 importFrom(tibble,tibble)
 useDynLib(Rparadox, .registration = TRUE)

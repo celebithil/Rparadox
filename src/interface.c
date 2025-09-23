@@ -22,7 +22,6 @@
 // These functions are internal to this file and not exposed to R directly.
 static void pxdoc_finalizer(SEXP extptr);
 static pxdoc_t* check_pxdoc_ptr(SEXP pxdoc_extptr);
-static char* re_encode_string_to_utf8(pxdoc_t* pxdoc, const char* input_str);
 static SEXP px_to_sexp(pxdoc_t* pxdoc, pxval_t* val, int px_ftype);
 
 /**
@@ -79,7 +78,7 @@ SEXP pxlib_close_file_c(SEXP pxdoc_extptr) {
  * @param encoding_sexp An R character string SEXP for the source encoding, or R_NilValue.
  * @return An R external pointer of class "pxdoc_t" on success, or `R_NilValue` on failure.
  */
-SEXP pxlib_open_file_c(SEXP filename_sexp, SEXP encoding_sexp) {
+SEXP pxlib_open_file_c(SEXP filename_sexp) {
   if (TYPEOF(filename_sexp) != STRSXP || LENGTH(filename_sexp) != 1 || STRING_ELT(filename_sexp, 0) == NA_STRING) {
     Rf_error("Filename must be a single, non-NA character string.");
   }
@@ -96,40 +95,6 @@ SEXP pxlib_open_file_c(SEXP filename_sexp, SEXP encoding_sexp) {
     return R_NilValue;
   }
   
-  // --- Encoding Handling Logic ---
-  const char* source_encoding_str = NULL;
-  char codepage_buffer[30];
-  
-  // 1. Check for user-provided encoding override.
-  if (TYPEOF(encoding_sexp) == STRSXP && LENGTH(encoding_sexp) == 1) {
-    source_encoding_str = CHAR(STRING_ELT(encoding_sexp, 0));
-  }
-  
-  // 2. If no override, try to get codepage from file header.
-  if (source_encoding_str == NULL && pxdoc->px_head->px_doscodepage > 0) {
-    snprintf(codepage_buffer, sizeof(codepage_buffer), "CP%d", pxdoc->px_head->px_doscodepage);
-    source_encoding_str = codepage_buffer;
-  }
-  
-  // 3. If a source encoding is determined, set up iconv for UTF-8 conversion.
-  if (source_encoding_str != NULL) {
-    const char* target_encoding = "UTF-8";
-    
-    if (pxdoc->out_iconvcd != (Riconv_t)(-1)) {
-      Riconv_close(pxdoc->out_iconvcd);
-    }
-    pxdoc->out_iconvcd = Riconv_open(target_encoding, source_encoding_str);
-    
-    if (pxdoc->out_iconvcd == (Riconv_t)(-1)) {
-      Rf_warning("Failed to set up encoding conversion from '%s' to '%s'.",
-                 source_encoding_str, target_encoding);
-    } else {
-      if (pxdoc->targetencoding) pxdoc->free(pxdoc, pxdoc->targetencoding);
-      pxdoc->targetencoding = PX_strdup(pxdoc, target_encoding);
-    }
-  }
-  // --- End of Encoding Logic ---
-  
   // Create an R external pointer to hold the pxdoc_t object.
   // PROTECT ensures the SEXP is not garbage collected prematurely.
   SEXP pxdoc_extptr = PROTECT(R_MakeExternalPtr(pxdoc, R_NilValue, R_NilValue));
@@ -140,13 +105,34 @@ SEXP pxlib_open_file_c(SEXP filename_sexp, SEXP encoding_sexp) {
   SET_STRING_ELT(class_attr, 0, mkChar("pxdoc_t"));
   SET_STRING_ELT(class_attr, 1, mkChar("externalptr"));
   setAttrib(pxdoc_extptr, R_ClassSymbol, class_attr);
-  
   // Release the objects from GC protection as they are now safe.
   // Unprotect pxdoc_extptr and class_attr.
   UNPROTECT(2);
   return pxdoc_extptr;
 }
 
+/**
+ * @brief Extracts the code page from the Paradox file header.
+ *
+ * This function is called from R to retrieve the original encoding,
+ * which will then be used by function in R.
+ *
+ * @param pxdoc_extptr External R pointer to an open Paradox database.
+ * @return R string (SEXP) with the code page name (e.g., "CP866")
+ * or R_NilValue if the code page is not found.
+ */
+SEXP pxlib_get_codepage_c(SEXP pxdoc_extptr) {
+  pxdoc_t* pxdoc = check_pxdoc_ptr(pxdoc_extptr);
+  int codepage = pxdoc->px_head->px_doscodepage;
+  
+  if (codepage > 0) {
+    char buffer[30];
+    snprintf(buffer, sizeof(buffer), "CP%d", codepage);
+    return mkString(buffer);
+  }
+  
+  return R_NilValue;
+}
 /**
  * @brief Associates a BLOB file (.MB) with an open Paradox database.
  *
@@ -265,15 +251,7 @@ SEXP pxlib_get_data_c(SEXP pxdoc_extptr) {
   // --- Step 3: Set column names for the data_list ---
   SEXP col_names = PROTECT(allocVector(STRSXP, num_fields));
   for (int j = 0; j < num_fields; j++) {
-    // Re-encode field names from the database's codepage to UTF-8 for R.
-    char* utf8_fname = re_encode_string_to_utf8(pxdoc, fields[j].px_fname);
-    if (utf8_fname != NULL) {
-      SET_STRING_ELT(col_names, j, mkCharCE(utf8_fname, CE_UTF8));
-      free(utf8_fname);
-    } else {
-      // Fallback to the original name if re-encoding is not needed or fails.
-      SET_STRING_ELT(col_names, j, mkChar(fields[j].px_fname));
-    }
+    SET_STRING_ELT(col_names, j, mkChar(fields[j].px_fname));
   }
   // No special class needed for other types.
   setAttrib(data_list, R_NamesSymbol, col_names);
@@ -329,63 +307,43 @@ static SEXP px_to_sexp(pxdoc_t* pxdoc, pxval_t* val, int px_ftype) {
   switch(px_ftype) {
   // --- Text-like Types ---
   case pxfAlpha:
-    r_string = mkCharCE(val->value.str.val, CE_UTF8);
-    free(val->value.str.val);
+    if (val->value.str.val == NULL) return NA_STRING;
+    SEXP r_string = mkChar(val->value.str.val);
+    pxdoc->free(pxdoc, val->value.str.val);
     return r_string;
   case pxfBCD:
     if (strcmp(val->value.str.val, "-??????????????????????????.??????") == 0) {
       //Free the memory even if the value is null-like.
-      free(val->value.str.val);
+      pxdoc->free(pxdoc, val->value.str.val);
       return R_NilValue;
     }
     r_string = mkChar(val->value.str.val);
-    free(val->value.str.val);
+    pxdoc->free(pxdoc, val->value.str.val);
     return r_string;
   case pxfMemoBLOb:
   case pxfFmtMemoBLOb:
-  {
     if (val->value.str.val == NULL) return R_NilValue;
-    
-    // pxlib does not guarantee null-termination for memo fields. To pass them
-    // safely to C string functions, we create a temporary, null-terminated buffer.
-    int len = val->value.str.len;
-    char* safe_buffer = (char*) malloc(len + 1);
-    if (safe_buffer == NULL) {
-      Rf_warning("Failed to allocate memory for memo field buffer.");
-      return R_NilValue;
-    }
-    
-    memcpy(safe_buffer, val->value.str.val, len);
-    safe_buffer[len] = '\0'; // Ensure null-termination
-    
-    // Attempt to re-encode the string to UTF-8
-    char* utf8_string = re_encode_string_to_utf8(pxdoc, safe_buffer);
-    if (utf8_string != NULL) {
-      r_string = mkCharCE(utf8_string, CE_UTF8);
-      free(utf8_string);
-    } else {
-      // Fallback: create a native-encoded string if re-encoding fails or is not needed.
-      r_string = mkChar(safe_buffer);
-    }
-    
-    free(safe_buffer); // Free the temporary buffer
-    free(val->value.str.val);
-    return r_string;
-  }
+    // pxlib does not guarantee null-termination for memo fields
+    SEXP memo_string = mkCharLen(val->value.str.val, val->value.str.len);
+    pxdoc->free(pxdoc, val->value.str.val);
+    return memo_string;
   // --- True Binary Types ---
   case pxfBytes: {
     r_string = mkCharLen(val->value.str.val, val->value.str.len);
-    free(val->value.str.val);
+    pxdoc->free(pxdoc, val->value.str.val);
     return r_string;
   }
   case pxfBLOb: case pxfGraphic: case pxfOLE:
     if (val->value.str.len == 0) {
+      if(val->value.str.val != NULL) {
+        pxdoc->free(pxdoc, val->value.str.val);
+      }
       return R_NilValue;
     }
     SEXP raw_vec = PROTECT(allocVector(RAWSXP, val->value.str.len));
     memcpy(RAW(raw_vec), val->value.str.val, val->value.str.len);
     UNPROTECT(1);
-    free(val->value.str.val);
+    pxdoc->free(pxdoc, val->value.str.val);
     return raw_vec;
   // --- Other Types (Numeric, Logical, Date/Time) ---
   case pxfShort: case pxfLong: case pxfAutoInc:
@@ -428,53 +386,6 @@ static SEXP px_to_sexp(pxdoc_t* pxdoc, pxval_t* val, int px_ftype) {
 }
 
 /**
- * @brief Re-encodes a string from the file's encoding to UTF-8 using Riconv.
- *
- * The caller is responsible for freeing the returned `char*` pointer.
- *
- * @param pxdoc Pointer to the pxdoc_t object, which contains the iconv context.
- * @param input_str The input C string to be re-encoded.
- * @return A newly allocated, UTF-8 encoded C string, or `NULL` on failure or if
- * re-encoding is not configured.
- */
-static char* re_encode_string_to_utf8(pxdoc_t* pxdoc, const char* input_str) {
-  if (pxdoc->targetencoding == NULL || input_str == NULL || input_str[0] == '\0') {
-    return NULL;
-  }
-  
-  size_t input_len = strlen(input_str);
-  if (input_len == 0) return NULL;
-  
-  // Heuristic: allocate 2x input length for safety during conversion (e.g., ASCII to UTF-16).
-  size_t output_len = input_len * 2 + 1;
-  char* output_buf = (char*) malloc(output_len);
-  if (output_buf == NULL) {
-    Rf_warning("Memory allocation failed for string re-encoding.");
-    return NULL;
-  }
-  
-  const char* input_ptr = (const char*) input_str;
-  char* output_ptr = output_buf;
-  size_t output_len_remaining = output_len;
-  
-  // Reset Riconv state before each conversion.
-  Riconv(pxdoc->out_iconvcd, NULL, NULL, NULL, NULL);
-  
-  size_t result = Riconv(pxdoc->out_iconvcd, &input_ptr, &input_len, &output_ptr, &output_len_remaining);
-  *output_ptr = '\0'; // Null-terminate the output string.
-  
-  if (result == (size_t)-1) {
-    free(output_buf);
-    Rf_warning("String re-encoding with Riconv failed.");
-    return NULL;
-  }
-  
-  // Reallocate to the exact size to save memory.
-  char* final_buf = (char*) realloc(output_buf, strlen(output_buf) + 1);
-  return (final_buf == NULL) ? output_buf : final_buf; // Return original if realloc fails
-}
-
-/**
  * @brief Validates that a SEXP is a valid, non-NULL external pointer to pxdoc_t.
  *
  * This helper function is used by other C functions to ensure that the `pxdoc_extptr`
@@ -489,4 +400,71 @@ static pxdoc_t* check_pxdoc_ptr(SEXP pxdoc_extptr) {
                "Please use a valid object from pxlib_open_file().");
   }
   return (pxdoc_t*) R_ExternalPtrAddr(pxdoc_extptr);
+}
+
+/* In file: src/interface.c */
+
+/**
+ * @brief Retrieves metadata from an open Paradox file handle.
+ *
+ * This function is the C backend for pxlib_metadata(). It takes an existing,
+ * open pxdoc_t object and extracts metadata without re-opening the file.
+ *
+ * @param pxdoc_extptr An R external pointer to the open Paradox database.
+ * @return A named R list containing metadata.
+ */
+SEXP pxlib_get_metadata_c(SEXP pxdoc_extptr) {
+  pxdoc_t* pxdoc = check_pxdoc_ptr(pxdoc_extptr);
+  
+  int num_fields = PX_get_num_fields(pxdoc);
+  pxfield_t* fields = PX_get_fields(pxdoc);
+  
+  if (fields == NULL && num_fields > 0) {
+    Rf_error("Could not retrieve field definitions from Paradox file.");
+  }
+  
+  // --- Build the Result List for R ---
+  SEXP result_list = PROTECT(allocVector(VECSXP, 3));
+  SEXP result_names = PROTECT(allocVector(STRSXP, 3));
+  SET_STRING_ELT(result_names, 0, mkChar("num_records"));
+  SET_STRING_ELT(result_names, 1, mkChar("num_fields"));
+  SET_STRING_ELT(result_names, 2, mkChar("fields"));
+  setAttrib(result_list, R_NamesSymbol, result_names);
+  
+  SET_VECTOR_ELT(result_list, 0, ScalarInteger(PX_get_num_records(pxdoc)));
+  SET_VECTOR_ELT(result_list, 1, ScalarInteger(num_fields));
+  
+  // --- Create and Populate the 'fields' DataFrame ---
+  SEXP fields_df = PROTECT(allocVector(VECSXP, 3));
+  SEXP fields_df_names = PROTECT(allocVector(STRSXP, 3));
+  SET_STRING_ELT(fields_df_names, 0, mkChar("name"));
+  SET_STRING_ELT(fields_df_names, 1, mkChar("type"));
+  SET_STRING_ELT(fields_df_names, 2, mkChar("size"));
+  setAttrib(fields_df, R_NamesSymbol, fields_df_names);
+  
+  SEXP name_col = PROTECT(allocVector(STRSXP, num_fields));
+  SEXP type_col = PROTECT(allocVector(INTSXP, num_fields));
+  SEXP size_col = PROTECT(allocVector(INTSXP, num_fields));
+  
+  for (int i = 0; i < num_fields; i++) {
+    SET_STRING_ELT(name_col, i, mkChar(fields[i].px_fname));
+    INTEGER(type_col)[i] = fields[i].px_ftype;
+    INTEGER(size_col)[i] = fields[i].px_flen;
+  }
+  
+  SET_VECTOR_ELT(fields_df, 0, name_col);
+  SET_VECTOR_ELT(fields_df, 1, type_col);
+  SET_VECTOR_ELT(fields_df, 2, size_col);
+  
+  SEXP row_names = PROTECT(allocVector(INTSXP, 2));
+  INTEGER(row_names)[0] = NA_INTEGER;
+  INTEGER(row_names)[1] = -num_fields;
+  setAttrib(fields_df, R_RowNamesSymbol, row_names);
+  setAttrib(fields_df, R_ClassSymbol, mkString("data.frame"));
+  
+  SET_VECTOR_ELT(result_list, 2, fields_df);
+  
+  UNPROTECT(8);
+  
+  return result_list;
 }

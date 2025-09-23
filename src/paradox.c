@@ -3362,10 +3362,10 @@ PX_read_graphicdata(pxblob_t *pxblob, const char *data, int len, int *mod, int *
 
 PXLIB_API int PXLIB_CALL
 PX_get_data_alpha(pxdoc_t *pxdoc, char *data, int len, char **value) {
-  char *buffer, *obuf = NULL;
-  size_t olen;
+  char *buffer;
   size_t actual_len = 0;
   
+  // NULL value in Paradox is represented by a zero byte at the beginning of the field
   if(data[0] == '\0') {
     *value = NULL;
     return 0;
@@ -3377,52 +3377,20 @@ PX_get_data_alpha(pxdoc_t *pxdoc, char *data, int len, char **value) {
     actual_len++;
   }
   
-  if(pxdoc->targetencoding != NULL) {
-    const char *iptr;
-    char *optr;
-    size_t res;
-    size_t ilen = actual_len; // Use the safe length
-    
-    // olen must be large enough to handle re-encoding (e.g., to UTF-8).
-    olen = 2 * ilen + 1;
-    optr = obuf = (char *) malloc(olen);
-    if (obuf == NULL) {
-      *value = NULL;
-      return -1; // Memory allocation error
-    }
-    iptr = data;
-    
-    Riconv(pxdoc->out_iconvcd, NULL, NULL, NULL, NULL); // Reset iconv state
-    if((size_t)-1 == (res = Riconv(pxdoc->out_iconvcd, &iptr, &ilen, &optr, &olen)))  {
-      *value = NULL;
-      free(obuf);
-      return -1;
-    }
-    *optr = '\0';
-    olen = optr-obuf;
-  } else {
-    olen = actual_len;
-    obuf = data;
+  // Allocate memory for the raw string using pxlib's memory manager
+  // The memory will be freed later by the caller (in interface.c)
+  buffer = (char *) pxdoc->malloc(pxdoc, actual_len + 1, _("Allocate memory for raw alpha field data."));
+  if(!buffer) {
+    *value = NULL;
+    return -1; // Return -1 on memory allocation failure
   }
   
-  /* Copy the re-encoded string into memory managed by pxlib. */
-  buffer = (char *) pxdoc->malloc(pxdoc, olen + 1, _("Allocate memory for field data."));
-  if(!buffer) {
-    if(pxdoc->targetencoding != NULL) {
-      free(obuf);
-    }
-    *value = NULL;
-    return -1;
-  }
-  memcpy(buffer, obuf, olen);
-  buffer[olen] = '\0';
+  // Copy raw string data and ensure null termination
+  memcpy(buffer, data, actual_len);
+  buffer[actual_len] = '\0';
   *value = buffer;
   
-  if(pxdoc->targetencoding != NULL) {
-    free(obuf);
-  }
-  
-  return 1;
+  return 1; // Return 1 on success
 }
 /* }}} */
 

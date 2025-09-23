@@ -45,31 +45,42 @@ pxlib_open_file <- function(path, encoding = NULL) {
   if (!is.character(path) || length(path) != 1 || is.na(path)) {
     stop("File path must be a single, non-NA character string.")
   }
-  
   if (!is.null(encoding) && (!is.character(encoding) || length(encoding) != 1 || is.na(encoding))) {
     stop("Encoding must be NULL or a single, non-NA character string.")
   }
-  
   if (!file.exists(path)) {
     warning("File not found: ", path)
     return(NULL)
   }
   
   # --- 2. Call C backend to open the main .db file ---
-  # The `encoding` parameter is passed directly to the C layer.
-  pxdoc <- .Call("R_pxlib_open_file", path, encoding)
+  pxdoc <- .Call("R_pxlib_open_file", path)
   
-  # --- 3. Auto-detect and attach associated .mb (BLOB) file ---
-  if (!is.null(pxdoc)) {
-    # `find_blob_file` is an internal utility to find the .mb file case-insensitively.
-    blob_file_path <- find_blob_file(path)
-    
-    if (!is.null(blob_file_path)) {
-      # If a blob file is found, call the C function to attach it.
-      success <- .Call("R_pxlib_set_blob_file", pxdoc, blob_file_path)
-      if (!success) {
-        warning("Found BLOB file '", basename(blob_file_path), "' but failed to attach it.")
-      }
+  # --- 3. Encoding determination and preservation ---
+  if (is.null(pxdoc)) {
+    return(pxdoc)
+  }
+  
+  # Use user-specified encoding if provided, otherwise get codepage from file header via C function
+  db_encoding <- if (!is.null(encoding)) {
+    encoding
+  } else {
+    .Call("R_pxlib_get_codepage", pxdoc)
+  }
+  
+  # Store determined encoding as pointer attribute for later use by pxlib_get_data()
+  if (!is.null(db_encoding)) {
+    attr(pxdoc, "px_encoding") <- db_encoding
+  }
+  
+  # Auto-detect and attach associated .mb (BLOB) file
+  blob_file_path <- find_blob_file(path)
+  # `find_blob_file` is an internal utility to find the .mb file case-insensitively.
+  if (!is.null(blob_file_path)) {
+    # If a blob file is found, call the C function to attach it.
+    success <- .Call("R_pxlib_set_blob_file", pxdoc, blob_file_path)
+    if (!success) {
+      warning("Found BLOB file '", basename(blob_file_path), "' but failed to attach it.")
     }
   }
   
