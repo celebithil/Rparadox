@@ -6,12 +6,13 @@
 \alias{Rparadox-package}
 \title{Rparadox: Read Paradox Database Files into R}
 \description{
-Provides a simple and efficient way to read data from Paradox database files (.db) directly into R as modern 'tibble' data frames. It uses the underlying 'pxlib' C library to handle the low-level file format details and provides a clean, user-friendly R interface.
+Provides a simple and efficient way to read data from Paradox database files (.db) directly into R as modern 'tibble' data frames. It uses the underlying 'pxlib' C library, to handle the low-level file format details and provides a clean, user-friendly R interface.
 }
 \seealso{
 Useful links:
 \itemize{
   \item \url{https://github.com/celebithil/Rparadox}
+  \item \url{https://github.com/steinm/pxlib}
   \item Report bugs at \url{https://github.com/celebithil/Rparadox/issues}
 }
 

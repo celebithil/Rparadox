@@ -69,6 +69,8 @@ biolife_data <- read_paradox(db_path)
 print(biolife_data)
 ```
 
+![biolife.db](man/figures/demo.jpg)
+
 ### Handling Incorrect Character Encoding
 
 If you have a legacy file where the encoding is specified incorrectly in the header, you can manually override it using the `encoding` parameter with `read_paradox()`.

@@ -92,6 +92,11 @@ print(biolife_data)
 #> # ℹ 2 more variables: Notes <chr>, Graphic <blob>
 ```
 
+<figure>
+<img src="man/figures/demo.jpg" alt="biolife.db" />
+<figcaption aria-hidden="true">biolife.db</figcaption>
+</figure>
+
 ### Handling Incorrect Character Encoding
 
 If you have a legacy file where the encoding is specified incorrectly in
