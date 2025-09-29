@@ -141,7 +141,5 @@ if (!is.null(pxdoc)) {
 ## Links
 
 - pxlib C library: <https://github.com/steinm/pxlib>
-- CRAN page: <https://CRAN.R-project.org/package=Rparadox>
-- Documentation:
-  <https://cran.r-project.org/web/packages/Rparadox/Rparadox.pdf>
+- CRAN page: <https://cran.r-project.org/package=Rparadox>
 - Bug reports: <https://github.com/celebithil/Rparadox/issues>

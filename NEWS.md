@@ -1,3 +1,10 @@
+# Rparadox 0.1.5
+
+## CRAN check Note fix
+
+* remove incorrect CRAN link in Readme.
+
+
 # Rparadox 0.1.4
 
 ## Cosmetic fixes
