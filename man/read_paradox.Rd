@@ -4,7 +4,7 @@
 \alias{read_paradox}
 \title{Read a Paradox Database File into a Tibble}
 \usage{
-read_paradox(path, encoding = NULL)
+read_paradox(path, encoding = NULL, password = NULL)
 }
 \arguments{
 \item{path}{A character string specifying the path to the Paradox (.db) file.}
@@ -12,6 +12,10 @@ read_paradox(path, encoding = NULL)
 \item{encoding}{An optional character string specifying the input encoding of
 the data (e.g., "cp866", "cp1252"). If \code{NULL} (the default), the encoding
 is determined from the file header.}
+
+\item{password}{Optional character string. The password used to decrypt the
+Paradox file. If the file is encrypted and no password is provided,
+reading usually fails or returns garbage.}
 }
 \value{
 A \code{tibble} containing the data from the Paradox file.

@@ -30,6 +30,9 @@
 #include <fcntl.h>
 #endif
 #include <time.h>
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
 
 #ifdef WIN32
 #include <Windows.h>
@@ -3427,7 +3430,7 @@ PX_get_data_double(pxdoc_t *pxdoc, char *data, int len, double *value) {
 	memcpy(&tmp, data, 8);
 	if(tmp[0] & 0x80) {
 		tmp[0] &= 0x7f;
-	} else if(*((long int *)tmp) != 0) {
+	} else if(*((int32_t *)tmp) != 0) {
 		int k;
 		for(k=0; k<len; k++)
 			tmp[k] = ~tmp[k];
@@ -3446,7 +3449,7 @@ PX_get_data_double(pxdoc_t *pxdoc, char *data, int len, double *value) {
 PXLIB_API int PXLIB_CALL
 PX_get_data_long(pxdoc_t *pxdoc, char *data, int len, long *value) {
   char tmp[4] = {0}; // Теперь это просто хорошая практика
-  long int tmp_val = 0; // Новая переменная для хранения long int значения
+  int32_t tmp_val = 0; // Новая переменная для хранения long int значения
   
   // Копируем данные из 'data' в 'tmp'
   memcpy(&tmp, data, 4);

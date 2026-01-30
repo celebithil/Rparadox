@@ -1,10 +1,9 @@
 # Rparadox/R/pxlib_close_file.R
 
-#' Close a Paradox database file
-#'
+#' @title Close a Paradox database file
+#' @description
 #' This function explicitly closes a Paradox database file associated with
 #' a `pxdoc_t` external pointer and releases its resources.
-#'
 #' @param pxdoc An external pointer of class 'pxdoc_t' obtained from `pxlib_open_file()`.
 #' @return Invisible `NULL`.
 #' @export

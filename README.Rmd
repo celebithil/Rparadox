@@ -27,6 +27,7 @@ This package is designed to "just work" for the most common use case: extracting
 -   **Direct Reading:** Reads Paradox `.db` files without needing database drivers or external software.
 -   **Tibble Output:** Returns data in the `tibble` format, which is fully compatible with the Tidyverse ecosystem.
 -   **Automatic BLOB Handling:** Automatically detects, attaches, and reads data from associated memo/BLOB (`.mb`) files.
+-   **Encryption Support:** Supports reading password-protected Paradox files.
 -   **Character Encoding Control:** Automatically handles character encoding conversion to UTF-8 and allows the user to manually override the source encoding for files with incorrect headers.
 -   **Type Conversion:** Correctly maps Paradox data types to their corresponding R types, including `Date`, `Time` (`hms`), `Timestamp` (`POSIXct`), `Logical`, `Integer`, `Numeric`, and binary `blob` objects.
 
@@ -59,6 +60,7 @@ The easiest way to read a Paradox file is with the high-level `read_paradox()` f
 library(Rparadox)
 
 # 2. Get the path to an example database
+# In a real scenario: db_path <- "path/to/your/data.db"
 db_path <- system.file("extdata", "biolife.db", package = "Rparadox")
 
 # 3. Read the data directly into a tibble
@@ -70,6 +72,15 @@ print(biolife_data)
 ```
 
 ![biolife.db](man/figures/demo.jpg)
+
+### Reading Encrypted Files
+If your Paradox file is password-protected, simply provide the password using the `password` argument:
+
+```{r, eval=FALSE}
+library(Rparadox)
+# Read a password-protected file
+secure_data <- read_paradox("path/to/encrypted.db", password = "secret_password")
+```
 
 ### Handling Incorrect Character Encoding
 
@@ -97,13 +108,19 @@ pxdoc <- pxlib_open_file(db_path)
 if (!is.null(pxdoc)) {
   # 2. Get metadata without reading all the data
   metadata <- pxlib_metadata(pxdoc)
+  
+  # Metadata now includes human-readable field types and detected encoding
+  cat("Encoding:", metadata$encoding, "\n")
   cat("Number of records:", metadata$num_records, "\n")
+  print(head(metadata$fields))
   
   # 3. Read the actual data
   data_table <- pxlib_get_data(pxdoc)
   
   # 4. Always close the file when you're done
   pxlib_close_file(pxdoc)
+  
+  print(data_table)
 }
 ```
 

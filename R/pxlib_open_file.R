@@ -1,6 +1,6 @@
-# Rparadox/R/pxlib_open_file.R
+# Raradox/pxlib_open_file.R
 
-#' Open a Paradox Database File
+#' @title Open a Paradox Database File
 #'
 #' @description
 #' Opens a Paradox database (.db) file and prepares it for reading. This function
@@ -17,12 +17,40 @@
 #'     (with a `.mb` extension, case-insensitively) in the same directory and,
 #'     if found, attaches it to the database handle.
 #'
+#' ## Encryption Handling
+#' 
+#' This function automatically handles encrypted Paradox files:
+#' 
+#' 1. If the file is **not encrypted**, the `password` parameter is ignored
+#' 2. If the file **is encrypted** and `password` is provided, it validates the password
+#' 3. If the file **is encrypted** and `password` is `NULL`, an error is thrown
+#' 4. If the provided password is **incorrect**, an error is thrown
+#' 
+#' When a file is successfully opened with the correct password, all subsequent
+#' operations (like `pxlib_get_data()`) will automatically decrypt the data.
+#' 
+#' ## Resource Management
+#' 
+#' It's important to always close the file handle using `pxlib_close_file()`
+#' when you're done to prevent resource leaks. Using `on.exit()` is recommended:
+#' 
+#' ```r
+#' px_doc <- pxlib_open_file("myfile.db", password = "secret")
+#' on.exit(pxlib_close_file(px_doc), add = TRUE)
+#' # ... work with the file ...
+#' ```
+#'
 #' @param path A character string specifying the path to the Paradox (.db) file.
-#' @param encoding An optional character string specifying the input encoding of
-#'   the data (e.g., "cp866", "cp1252"). If `NULL` (the default), the encoding
-#'   is determined from the file header.
-#' @return An external pointer of class 'pxdoc_t' if the file is successfully
-#'   opened, or `NULL` if an error occurs (e.g., file not found).
+#' @param encoding An optional character string specifying the source encoding
+#'   (e.g., "cp866", "cp1252"). If `NULL` (default), encoding is determined
+#'   from the file header.
+#' @param password An optional character string specifying the password for
+#'   encrypted files. If the file is encrypted and no password is provided,
+#'   an error will be thrown. Default is `NULL`.
+#'
+#' @return An external pointer of class `"pxdoc_t"` representing the opened
+#'   Paradox file, or `NULL` if the file could not be opened (with a warning).
+#'
 #' @export
 #' @examples
 #' # Example 1: Open a bundled demo file (biolife.db)
@@ -40,23 +68,37 @@
 #'   # read some data ...
 #'   pxlib_close_file(pxdoc2)
 #' }
-pxlib_open_file <- function(path, encoding = NULL) {
+#'
+#' # Example 3: Open an encrypted file with password
+#' db_path3 <- system.file("extdata", "country_encrypted.db", package = "Rparadox")
+#' px_doc <- pxlib_open_file(db_path3, password = "rparadox")
+#' data <- pxlib_get_data(px_doc)
+#' pxlib_close_file(px_doc)
+#'
+pxlib_open_file <- function(path, encoding = NULL, password = NULL) {
   # --- 1. Input Validation ---
   if (!is.character(path) || length(path) != 1 || is.na(path)) {
-    stop("File path must be a single, non-NA character string.")
+    stop("Argument 'path' must be a single character string.", call. = FALSE)
   }
+  
   if (!is.null(encoding) && (!is.character(encoding) || length(encoding) != 1 || is.na(encoding))) {
-    stop("Encoding must be NULL or a single, non-NA character string.")
+    stop("Argument 'encoding' must be NULL or a single character string.", call. = FALSE)
   }
+  
+  if (!is.null(password) && (!is.character(password) || length(password) != 1 || is.na(password))) {
+    stop("Argument 'password' must be a single character string.", call. = FALSE)
+  }
+  
+  # --- 2. Check File Existence ---
   if (!file.exists(path)) {
-    warning("File not found: ", path)
+    warning("File not found: ", path, call. = FALSE)
     return(NULL)
   }
+
+  # --- 3. Call C backend to open the main .db file ---
+  pxdoc <- .Call("R_pxlib_open_file", path, password)
   
-  # --- 2. Call C backend to open the main .db file ---
-  pxdoc <- .Call("R_pxlib_open_file", path)
-  
-  # --- 3. Encoding determination and preservation ---
+  # --- 4. Encoding determination and preservation ---
   if (is.null(pxdoc)) {
     return(pxdoc)
   }

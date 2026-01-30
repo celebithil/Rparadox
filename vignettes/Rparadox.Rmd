@@ -18,7 +18,7 @@ library(Rparadox)
 
 ## Introduction
 
-The Rparadox package provides tools to read data from Paradox database files (`.db`) directly into R. This vignette will walk you through the basic and advanced usage of the package.
+The Rparadox package provides tools to read data from Paradox database files (`.db`) directly into R. This vignette will walk you through the basic and advanced usage of the package, including handling encrypted files and legacy encodings.
 
 ## Installation
 
@@ -49,6 +49,18 @@ biolife_data <- read_paradox(db_path)
 head(biolife_data)
 ```
 
+## Reading Encrypted Files
+
+Rparadox supports reading password-protected `.db` files. To read such a file, provide the `password` argument to `read_paradox()`.
+
+```{r, eval=FALSE}
+# Example for an encrypted file
+db_path <- "path/to/encrypted_file.db"
+my_data <- read_paradox(db_path, password = "my_secret_password")
+```
+
+If the file is encrypted and no password (or an incorrect one) is provided, the function will stop with an error message.
+
 ## Handling Character Encodings
 
 For legacy files with incorrect encoding information in the header, you can specify the correct encoding manually with the `encoding` argument.
@@ -58,7 +70,7 @@ For legacy files with incorrect encoding information in the header, you can spec
 my_data <- read_paradox("path/to/your/file.db", encoding = "cp866")
 ```
 
-This ensures that text is correctly converted to UTF-8.
+This ensures that text is correctly converted to UTF-8 using the `stringi` library.
 
 ## Advanced Usage: Metadata and Manual Control
 
@@ -77,13 +89,23 @@ pxdoc <- pxlib_open_file(db_path)
 
 if (!is.null(pxdoc)) {
   # Get and print metadata
+  # This is fast and doesn't read the full table content
   metadata <- pxlib_metadata(pxdoc)
-  print(metadata$fields)
   
-  # Read the full dataset
-  data_from_handle <- pxlib_get_data(pxdoc)
+  cat("Records:", metadata$num_records, "\n")
+  cat("Encoding:", metadata$encoding, "\n")
   
-  # IMPORTANT: Always close the file handle
+  # Inspect field definitions (names, types, sizes)
+  print(head(metadata$fields))
+  
+  # Read the data
+  # Note: If using pxlib_get_data directly with encrypted files, 
+  # ensure you have set the password via appropriate C-calls or use read_paradox() wrapper.
+  data <- pxlib_get_data(pxdoc)
+  
+  # Close the file handle
   pxlib_close_file(pxdoc)
+  
+  head(data)
 }
 ```

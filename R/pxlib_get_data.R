@@ -1,10 +1,4 @@
-#
-# File: pxlib_get_data.R
-#
-# This file contains the R wrapper function for retrieving data from an open
-# Paradox file handle. It serves as a user-friendly interface to the underlying
-# C function `R_pxlib_get_data`.
-#
+# Rparadox/R/pxlib_get_data.R
 
 #' @title Read Data from a Paradox File
 #' @description

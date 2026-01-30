@@ -1,3 +1,19 @@
+# Rparadox 0.2.0
+
+## New features
+
+* **Encryption Support**: Added the `password` argument to `read_paradox()`. Users can now read password-protected Paradox files (.db) and associated BLOB/Memo files (.MB).
+* **Enhanced Metadata**: `pxlib_metadata()` now returns human-readable field types (e.g., "Alpha", "Date", "Memo") instead of raw integer codes.
+* **Encoding info**: Metadata now explicitly reports the detected encoding.
+
+## Bug fixes and improvements (Core C library)
+
+* **Major x64 compatibility update**: Integrated patches for the underlying `pxlib` engine to ensure stability on 64-bit systems.
+    * Replaced `long int` with `int32_t` in data reading functions to ensure correct data width on 64-bit systems (Windows/Linux).
+    * Fixed pointer arithmetic logic in `src/px_head.c` to prevent undefined behavior and header corruption.
+    * Updated `writeproc` signature to `ssize_t` for POSIX compliance.
+
+
 # Rparadox 0.1.5
 
 ## CRAN check Note fix

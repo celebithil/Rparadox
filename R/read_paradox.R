@@ -1,6 +1,4 @@
-#
-# File: R/read_paradox.R
-#
+# Rparadox/R/pxlib_metadata.R
 
 #' @title Read a Paradox Database File into a Tibble
 #'
@@ -26,6 +24,9 @@
 #' @param encoding An optional character string specifying the input encoding of
 #'   the data (e.g., "cp866", "cp1252"). If `NULL` (the default), the encoding
 #'   is determined from the file header.
+#' @param password Optional character string. The password used to decrypt the 
+#'   Paradox file. If the file is encrypted and no password is provided, 
+#'   reading usually fails or returns garbage.
 #'
 #' @return A `tibble` containing the data from the Paradox file.
 #'
@@ -37,19 +38,25 @@
 #'   biolife_data <- read_paradox(db_path)
 #'   print(biolife_data)
 #' }
-read_paradox <- function(path, encoding = NULL) {
+
+read_paradox <- function(path, encoding = NULL, password = NULL) {
   # --- 1. Input Validation ---
   # This function performs its own validation
   if (!is.character(path) || length(path) != 1 || is.na(path)) {
     stop("Argument 'path' must be a single character string.", call. = FALSE)
   }
+
   if (!is.null(encoding) && (!is.character(encoding) || length(encoding) != 1 || is.na(encoding))) {
     stop("Argument 'encoding' must be NULL or a single character string.", call. = FALSE)
   }
-  
+
+  if (!is.null(password) && (!is.character(password) || length(password) != 1)) {
+    stop("Argument 'password' must be a single character string.", call. = FALSE)
+  }
+
   # --- 2. Open File Handle ---
   # We call the lower-level function to open the file.
-  pxdoc <- pxlib_open_file(path, encoding = encoding)
+  pxdoc <- pxlib_open_file(path, encoding = encoding, password = password)
   
   # --- 3. Handle File-Not-Found Case ---
   # pxlib_open_file() returns NULL and issues a warning if the file is not found.
@@ -66,8 +73,12 @@ read_paradox <- function(path, encoding = NULL) {
   
   # --- 5. Read Data ---
   # If the handle is valid, we proceed to read the data.
-  data_tbl <- pxlib_get_data(pxdoc)
-  
-  # --- 6. Return Result ---
+  data_tbl <- tryCatch({
+    pxlib_get_data(pxdoc)
+  }, error = function(e) {
+    stop("Failed to read data. Possibly corrupted file.", call. = FALSE)
+  })
+
+  # --- 7. Return Result ---
   return(data_tbl)
 }

@@ -17,6 +17,7 @@
 #include <stdlib.h>  // For malloc, free, realloc
 #include <string.h>  // For strcmp, strlen, memcpy
 #include "paradox.h" // pxlib main header, contains pxdoc_t, pxval_t, pxfield_t etc.
+#include "px_crypt.h"
 
 // Forward declarations for static helper functions.
 // These functions are internal to this file and not exposed to R directly.
@@ -71,40 +72,84 @@ SEXP pxlib_close_file_c(SEXP pxdoc_extptr) {
 /**
  * @brief Opens a Paradox file and returns an external pointer to the pxdoc_t struct.
  *
- * Initiates a connection to a Paradox database. It allows overriding the source
- * character encoding if specified by the user.
+ * Initiates a connection to a Paradox database.
+ * If the file is encrypted and a password is provided, it validates the password.
+ * If the file is encrypted and no password is provided, it returns an error.
+ * If the password is incorrect, it returns an error.
  *
  * @param filename_sexp An R character string SEXP containing the path to the .DB file.
- * @param encoding_sexp An R character string SEXP for the source encoding, or R_NilValue.
+ * @param password_sexp An R character string SEXP for the password, or R_NilValue.
  * @return An R external pointer of class "pxdoc_t" on success, or `R_NilValue` on failure.
  */
-SEXP pxlib_open_file_c(SEXP filename_sexp) {
-  if (TYPEOF(filename_sexp) != STRSXP || LENGTH(filename_sexp) != 1 || STRING_ELT(filename_sexp, 0) == NA_STRING) {
+SEXP pxlib_open_file_c(SEXP filename_sexp, SEXP password_sexp) {
+  // Validate filename
+  if (TYPEOF(filename_sexp) != STRSXP || LENGTH(filename_sexp) != 1 || 
+      STRING_ELT(filename_sexp, 0) == NA_STRING) {
     Rf_error("Filename must be a single, non-NA character string.");
   }
   const char *filename = CHAR(STRING_ELT(filename_sexp, 0));
   
+  // Get password if provided
+  const char *password = NULL;
+  if (!Rf_isNull(password_sexp)) {
+    if (TYPEOF(password_sexp) != STRSXP || LENGTH(password_sexp) != 1 || 
+        STRING_ELT(password_sexp, 0) == NA_STRING) {
+      Rf_error("Password must be NULL or a single, non-NA character string.");
+    }
+    password = CHAR(STRING_ELT(password_sexp, 0));
+  }
+  
+  // Create new pxdoc
   pxdoc_t* pxdoc = PX_new();
   if (pxdoc == NULL) {
     Rf_error("Failed to allocate new pxdoc_t object via PX_new().");
   }
   
+  // Open file
   if (PX_open_file(pxdoc, filename) != 0) {
     PX_delete(pxdoc);
     Rf_warning("pxlib failed to open file: %s", filename);
     return R_NilValue;
   }
   
-  // Create an R external pointer to hold the pxdoc_t object.
+  // Check encryption and validate password if needed
+  unsigned long encryption = pxdoc->px_head->px_encryption;
+  
+  if (encryption != 0) {
+    // File is encrypted
+    if (password == NULL) {
+      PX_close(pxdoc);
+      PX_delete(pxdoc);
+      Rf_error("File is password protected. Provide 'password' argument.");
+    }
+    
+    // Compute checksum from password
+    long checksum = px_passwd_checksum(password);
+    
+    // Validate password
+    if ((unsigned long)checksum != encryption) {
+      PX_close(pxdoc);
+      PX_delete(pxdoc);
+      Rf_error("Incorrect password.");
+    }
+    
+    // Password is valid!
+    // The encryption key is already in px_head->px_encryption
+    // px_read() will automatically decrypt blocks when reading
+  }
+  // else: file is not encrypted, continue normally
+  
+  // Create an R external pointer to hold the pxdoc_t object
   // PROTECT ensures the SEXP is not garbage collected prematurely.
   SEXP pxdoc_extptr = PROTECT(R_MakeExternalPtr(pxdoc, R_NilValue, R_NilValue));
-  // Register the finalizer to ensure resources are freed when R garbage collects the object.
   R_RegisterCFinalizerEx(pxdoc_extptr, pxdoc_finalizer, TRUE);
-  // Set the S3 class for method dispatch in R.
+  
+  // Set the S3 class for method dispatch in R
   SEXP class_attr = PROTECT(allocVector(STRSXP, 2));
   SET_STRING_ELT(class_attr, 0, mkChar("pxdoc_t"));
   SET_STRING_ELT(class_attr, 1, mkChar("externalptr"));
   setAttrib(pxdoc_extptr, R_ClassSymbol, class_attr);
+  
   // Release the objects from GC protection as they are now safe.
   // Unprotect pxdoc_extptr and class_attr.
   UNPROTECT(2);

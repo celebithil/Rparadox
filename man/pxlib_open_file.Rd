@@ -4,18 +4,22 @@
 \alias{pxlib_open_file}
 \title{Open a Paradox Database File}
 \usage{
-pxlib_open_file(path, encoding = NULL)
+pxlib_open_file(path, encoding = NULL, password = NULL)
 }
 \arguments{
 \item{path}{A character string specifying the path to the Paradox (.db) file.}
 
-\item{encoding}{An optional character string specifying the input encoding of
-the data (e.g., "cp866", "cp1252"). If \code{NULL} (the default), the encoding
-is determined from the file header.}
+\item{encoding}{An optional character string specifying the source encoding
+(e.g., "cp866", "cp1252"). If \code{NULL} (default), encoding is determined
+from the file header.}
+
+\item{password}{An optional character string specifying the password for
+encrypted files. If the file is encrypted and no password is provided,
+an error will be thrown. Default is \code{NULL}.}
 }
 \value{
-An external pointer of class 'pxdoc_t' if the file is successfully
-opened, or \code{NULL} if an error occurs (e.g., file not found).
+An external pointer of class \code{"pxdoc_t"} representing the opened
+Paradox file, or \code{NULL} if the file could not be opened (with a warning).
 }
 \description{
 Opens a Paradox database (.db) file and prepares it for reading. This function
@@ -32,6 +36,30 @@ where the encoding stored in the header may be incorrect. If \code{encoding} is
 \item \strong{BLOB File Attachment:} It automatically searches for an associated BLOB file
 (with a \code{.mb} extension, case-insensitively) in the same directory and,
 if found, attaches it to the database handle.
+}
+\subsection{Encryption Handling}{
+
+This function automatically handles encrypted Paradox files:
+\enumerate{
+\item If the file is \strong{not encrypted}, the \code{password} parameter is ignored
+\item If the file \strong{is encrypted} and \code{password} is provided, it validates the password
+\item If the file \strong{is encrypted} and \code{password} is \code{NULL}, an error is thrown
+\item If the provided password is \strong{incorrect}, an error is thrown
+}
+
+When a file is successfully opened with the correct password, all subsequent
+operations (like \code{pxlib_get_data()}) will automatically decrypt the data.
+}
+
+\subsection{Resource Management}{
+
+It's important to always close the file handle using \code{pxlib_close_file()}
+when you're done to prevent resource leaks. Using \code{on.exit()} is recommended:
+
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{px_doc <- pxlib_open_file("myfile.db", password = "secret")
+on.exit(pxlib_close_file(px_doc), add = TRUE)
+# ... work with the file ...
+}\if{html}{\out{</div>}}
 }
 }
 \examples{
@@ -50,4 +78,11 @@ if (!is.null(pxdoc2)) {
   # read some data ...
   pxlib_close_file(pxdoc2)
 }
+
+# Example 3: Open an encrypted file with password
+db_path3 <- system.file("extdata", "country_encrypted.db", package = "Rparadox")
+px_doc <- pxlib_open_file(db_path3, password = "rparadox")
+data <- pxlib_get_data(px_doc)
+pxlib_close_file(px_doc)
+
 }

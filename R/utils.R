@@ -1,3 +1,5 @@
+# Rparadox/R/utils.R
+
 #' @title Find Case-Insensitive Associated BLOB File
 #'
 #' @description
