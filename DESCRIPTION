@@ -1,6 +1,6 @@
 Package: Rparadox
 Title: Read Paradox Database Files into R
-Version: 0.2.0
+Version: 0.2.1
 Authors@R: 
     person(given = "Daniil",
            family = "Popov",

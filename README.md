@@ -2,7 +2,13 @@
 [![CRAN
 status](https://www.r-pkg.org/badges/version/Rparadox)](https://CRAN.R-project.org/package=Rparadox)
 [![CRAN
+downloads](https://cranlogs.r-pkg.org/badges/grand-total/Rparadox)](https://CRAN.R-project.org/package=Rparadox)
+[![CRAN
 downloads](https://cranlogs.r-pkg.org/badges/Rparadox)](https://CRAN.R-project.org/package=Rparadox)
+[![CRAN
+downloads](https://cranlogs.r-pkg.org/badges/last-week/Rparadox)](https://CRAN.R-project.org/package=Rparadox)
+[![CRAN
+downloads](https://cranlogs.r-pkg.org/badges/last-day/Rparadox)](https://CRAN.R-project.org/package=Rparadox)
 [![Ask
 DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/celebithil/Rparadox)
 

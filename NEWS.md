@@ -1,3 +1,17 @@
+# Rparadox 0.2.1
+
+## Bug fixes and improvements
+
+* Fixed rchk warnings:
+  - Suspicious call (two or more unprotected arguments) to Rf_setAttrib at pxlib_get_data_c Rparadox/src/interface.c:317
+  - Suspicious call (two or more unprotected arguments) to Rf_setAttrib at pxlib_get_data_c Rparadox/src/interface.c:326
+* Optimized performance using local static variables for constant caching
+  - Reduction in allocVector() calls for repeated file reads
+  - Caches class vectors: c("pxdoc_t", "externalptr"), c("hms", "difftime"), c("POSIXct", "POSIXt")
+  - Caches name vectors for metadata structure
+* Added download statistics badges to README (total, weekly, daily)
+
+
 # Rparadox 0.2.0
 
 ## New features

@@ -82,6 +82,16 @@ SEXP pxlib_close_file_c(SEXP pxdoc_extptr) {
  * @return An R external pointer of class "pxdoc_t" on success, or `R_NilValue` on failure.
  */
 SEXP pxlib_open_file_c(SEXP filename_sexp, SEXP password_sexp) {
+  // Local static variable - created once, visible only in this function
+  static SEXP class_pxdoc = NULL;
+  if (class_pxdoc == NULL) {
+    class_pxdoc = PROTECT(allocVector(STRSXP, 2));
+    SET_STRING_ELT(class_pxdoc, 0, mkChar("pxdoc_t"));
+    SET_STRING_ELT(class_pxdoc, 1, mkChar("externalptr"));
+    R_PreserveObject(class_pxdoc);
+    UNPROTECT(1);
+  }
+
   // Validate filename
   if (TYPEOF(filename_sexp) != STRSXP || LENGTH(filename_sexp) != 1 || 
       STRING_ELT(filename_sexp, 0) == NA_STRING) {
@@ -144,15 +154,10 @@ SEXP pxlib_open_file_c(SEXP filename_sexp, SEXP password_sexp) {
   SEXP pxdoc_extptr = PROTECT(R_MakeExternalPtr(pxdoc, R_NilValue, R_NilValue));
   R_RegisterCFinalizerEx(pxdoc_extptr, pxdoc_finalizer, TRUE);
   
-  // Set the S3 class for method dispatch in R
-  SEXP class_attr = PROTECT(allocVector(STRSXP, 2));
-  SET_STRING_ELT(class_attr, 0, mkChar("pxdoc_t"));
-  SET_STRING_ELT(class_attr, 1, mkChar("externalptr"));
-  setAttrib(pxdoc_extptr, R_ClassSymbol, class_attr);
+  // Set the S3 class for method dispatch in R (using cached constant)
+  setAttrib(pxdoc_extptr, R_ClassSymbol, class_pxdoc);
   
-  // Release the objects from GC protection as they are now safe.
-  // Unprotect pxdoc_extptr and class_attr.
-  UNPROTECT(2);
+  UNPROTECT(1); // Only pxdoc_extptr
   return pxdoc_extptr;
 }
 
@@ -215,6 +220,26 @@ SEXP pxlib_set_blob_file_c(SEXP pxdoc_extptr, SEXP blob_filename_sexp) {
  * Returns `R_NilValue` if the file is empty.
  */
 SEXP pxlib_get_data_c(SEXP pxdoc_extptr) {
+  // Local static variables - optimize only class vectors
+  // mkString() is already cached by R via CHARSXP pool, so we only optimize allocVector()
+  static SEXP class_hms = NULL;
+  static SEXP class_posixct = NULL;
+
+  // Initialize on first call of this function
+  if (class_hms == NULL) {
+    class_hms = PROTECT(allocVector(STRSXP, 2));
+    SET_STRING_ELT(class_hms, 0, mkChar("hms"));
+    SET_STRING_ELT(class_hms, 1, mkChar("difftime"));
+    R_PreserveObject(class_hms);
+    UNPROTECT(1);
+
+    class_posixct = PROTECT(allocVector(STRSXP, 2));
+    SET_STRING_ELT(class_posixct, 0, mkChar("POSIXct"));
+    SET_STRING_ELT(class_posixct, 1, mkChar("POSIXt"));
+    R_PreserveObject(class_posixct);
+    UNPROTECT(1);
+  }
+
   pxdoc_t* pxdoc = check_pxdoc_ptr(pxdoc_extptr);
   
   int num_records = PX_get_num_records(pxdoc);
@@ -306,26 +331,21 @@ SEXP pxlib_get_data_c(SEXP pxdoc_extptr) {
     SEXP column = VECTOR_ELT(data_list, j);
     switch(fields[j].px_ftype) {
     case pxfDate:
+      // mkString already cached by R via CHARSXP pool - leave as is
       setAttrib(column, R_ClassSymbol, mkString("Date"));
       break;
-    case pxfTime: {
-      SEXP time_class = PROTECT(allocVector(STRSXP, 2));
-      SET_STRING_ELT(time_class, 0, mkChar("hms"));
-      SET_STRING_ELT(time_class, 1, mkChar("difftime"));
-      setAttrib(column, R_ClassSymbol, time_class);
-      UNPROTECT(1);
+    case pxfTime:
+      // Use cached class vector
+      setAttrib(column, R_ClassSymbol, class_hms);
+      // mkString is cached - leave as is
       setAttrib(column, install("units"), mkString("secs"));
       break;
-    }
-    case pxfTimestamp: {
-      SEXP ts_class = PROTECT(allocVector(STRSXP, 2));
-      SET_STRING_ELT(ts_class, 0, mkChar("POSIXct"));
-      SET_STRING_ELT(ts_class, 1, mkChar("POSIXt"));
-      setAttrib(column, R_ClassSymbol, ts_class);
-      UNPROTECT(1);
+    case pxfTimestamp:
+      // Use cached class vector
+      setAttrib(column, R_ClassSymbol, class_posixct);
+      // mkString is cached - leave as is
       setAttrib(column, install("tzone"), mkString("UTC"));
       break;
-    }
     default: break;
     }
   }
@@ -372,7 +392,7 @@ static SEXP px_to_sexp(pxdoc_t* pxdoc, pxval_t* val, int px_ftype) {
     SEXP memo_string = mkCharLen(val->value.str.val, val->value.str.len);
     pxdoc->free(pxdoc, val->value.str.val);
     return memo_string;
-  // --- True Binary Types ---
+    // --- True Binary Types ---
   case pxfBytes: {
     r_string = mkCharLen(val->value.str.val, val->value.str.len);
     pxdoc->free(pxdoc, val->value.str.val);
@@ -390,7 +410,7 @@ static SEXP px_to_sexp(pxdoc_t* pxdoc, pxval_t* val, int px_ftype) {
     UNPROTECT(1);
     pxdoc->free(pxdoc, val->value.str.val);
     return raw_vec;
-  // --- Other Types (Numeric, Logical, Date/Time) ---
+    // --- Other Types (Numeric, Logical, Date/Time) ---
   case pxfShort: case pxfLong: case pxfAutoInc:
     return ScalarInteger(val->value.lval);
   case pxfNumber: case pxfCurrency:
@@ -459,6 +479,27 @@ static pxdoc_t* check_pxdoc_ptr(SEXP pxdoc_extptr) {
  * @return A named R list containing metadata.
  */
 SEXP pxlib_get_metadata_c(SEXP pxdoc_extptr) {
+  // Local static variables for name vectors
+  static SEXP names_metadata = NULL;
+  static SEXP names_fields = NULL;
+
+  // Initialize on first call
+  if (names_metadata == NULL) {
+    names_metadata = PROTECT(allocVector(STRSXP, 3));
+    SET_STRING_ELT(names_metadata, 0, mkChar("num_records"));
+    SET_STRING_ELT(names_metadata, 1, mkChar("num_fields"));
+    SET_STRING_ELT(names_metadata, 2, mkChar("fields"));
+    R_PreserveObject(names_metadata);
+    UNPROTECT(1);
+
+    names_fields = PROTECT(allocVector(STRSXP, 3));
+    SET_STRING_ELT(names_fields, 0, mkChar("name"));
+    SET_STRING_ELT(names_fields, 1, mkChar("type"));
+    SET_STRING_ELT(names_fields, 2, mkChar("size"));
+    R_PreserveObject(names_fields);
+    UNPROTECT(1);
+  }
+
   pxdoc_t* pxdoc = check_pxdoc_ptr(pxdoc_extptr);
   
   int num_fields = PX_get_num_fields(pxdoc);
@@ -470,22 +511,14 @@ SEXP pxlib_get_metadata_c(SEXP pxdoc_extptr) {
   
   // --- Build the Result List for R ---
   SEXP result_list = PROTECT(allocVector(VECSXP, 3));
-  SEXP result_names = PROTECT(allocVector(STRSXP, 3));
-  SET_STRING_ELT(result_names, 0, mkChar("num_records"));
-  SET_STRING_ELT(result_names, 1, mkChar("num_fields"));
-  SET_STRING_ELT(result_names, 2, mkChar("fields"));
-  setAttrib(result_list, R_NamesSymbol, result_names);
+  setAttrib(result_list, R_NamesSymbol, names_metadata); // Use cached names
   
   SET_VECTOR_ELT(result_list, 0, ScalarInteger(PX_get_num_records(pxdoc)));
   SET_VECTOR_ELT(result_list, 1, ScalarInteger(num_fields));
   
   // --- Create and Populate the 'fields' DataFrame ---
   SEXP fields_df = PROTECT(allocVector(VECSXP, 3));
-  SEXP fields_df_names = PROTECT(allocVector(STRSXP, 3));
-  SET_STRING_ELT(fields_df_names, 0, mkChar("name"));
-  SET_STRING_ELT(fields_df_names, 1, mkChar("type"));
-  SET_STRING_ELT(fields_df_names, 2, mkChar("size"));
-  setAttrib(fields_df, R_NamesSymbol, fields_df_names);
+  setAttrib(fields_df, R_NamesSymbol, names_fields); // Use cached names
   
   SEXP name_col = PROTECT(allocVector(STRSXP, num_fields));
   SEXP type_col = PROTECT(allocVector(INTSXP, num_fields));
@@ -509,7 +542,7 @@ SEXP pxlib_get_metadata_c(SEXP pxdoc_extptr) {
   
   SET_VECTOR_ELT(result_list, 2, fields_df);
   
-  UNPROTECT(8);
+  UNPROTECT(6); // result_list, fields_df, name_col, type_col, size_col, row_names
   
   return result_list;
 }
