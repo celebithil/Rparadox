@@ -1,3 +1,9 @@
+# Rparadox 0.2.2
+
+## Bug fixes
+
+* Fixed rchk warnings: "Suspicious call (two or more unprotected arguments) to Rf_setAttrib" in pxlib_get_data_c() (interface.c:341, 347)
+
 # Rparadox 0.2.1
 
 ## Bug fixes and improvements

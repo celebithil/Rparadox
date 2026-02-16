@@ -220,10 +220,15 @@ SEXP pxlib_set_blob_file_c(SEXP pxdoc_extptr, SEXP blob_filename_sexp) {
  * Returns `R_NilValue` if the file is empty.
  */
 SEXP pxlib_get_data_c(SEXP pxdoc_extptr) {
-  // Local static variables - optimize only class vectors
-  // mkString() is already cached by R via CHARSXP pool, so we only optimize allocVector()
+  // Local static variables - optimize class vectors and cache attribute values
+  // We cache mkString() results even though R caches them internally via CHARSXP pool,
+  // because rchk cannot detect this and warns about unprotected arguments to setAttrib()
   static SEXP class_hms = NULL;
   static SEXP class_posixct = NULL;
+  static SEXP attr_units_secs = NULL;
+  static SEXP attr_tzone_utc = NULL;
+  static SEXP sym_units = NULL;
+  static SEXP sym_tzone = NULL;
 
   // Initialize on first call of this function
   if (class_hms == NULL) {
@@ -238,6 +243,19 @@ SEXP pxlib_get_data_c(SEXP pxdoc_extptr) {
     SET_STRING_ELT(class_posixct, 1, mkChar("POSIXt"));
     R_PreserveObject(class_posixct);
     UNPROTECT(1);
+
+    // Cache attribute values to avoid rchk warnings about multiple unprotected arguments
+    attr_units_secs = PROTECT(mkString("secs"));
+    R_PreserveObject(attr_units_secs);
+    UNPROTECT(1);
+
+    attr_tzone_utc = PROTECT(mkString("UTC"));
+    R_PreserveObject(attr_tzone_utc);
+    UNPROTECT(1);
+
+    // Cache install() symbols to avoid repeated lookups and rchk warnings
+    sym_units = install("units");
+    sym_tzone = install("tzone");
   }
 
   pxdoc_t* pxdoc = check_pxdoc_ptr(pxdoc_extptr);
@@ -337,14 +355,14 @@ SEXP pxlib_get_data_c(SEXP pxdoc_extptr) {
     case pxfTime:
       // Use cached class vector
       setAttrib(column, R_ClassSymbol, class_hms);
-      // mkString is cached - leave as is
-      setAttrib(column, install("units"), mkString("secs"));
+      // Use cached attribute value and symbol to avoid rchk warning
+      setAttrib(column, sym_units, attr_units_secs);
       break;
     case pxfTimestamp:
       // Use cached class vector
       setAttrib(column, R_ClassSymbol, class_posixct);
-      // mkString is cached - leave as is
-      setAttrib(column, install("tzone"), mkString("UTC"));
+      // Use cached attribute value and symbol to avoid rchk warning
+      setAttrib(column, sym_tzone, attr_tzone_utc);
       break;
     default: break;
     }
