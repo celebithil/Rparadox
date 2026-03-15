@@ -1112,7 +1112,7 @@ mbhead_t *get_mb_head(pxblob_t *pxblob, pxstream_t *pxs) {
 		px_error(pxdoc, PX_RuntimeError, _("Could not go to start of blob file."));
 		return NULL;
 	}
-	if((ret = (int)pxblob->read(pxblob, pxs, sizeof(TMbHeader), &mbhead)) < 0) {
+	if((ret = (int)pxblob->read(pxblob, pxs, sizeof(TMbHeader), &mbhead)) < (int) sizeof(TMbHeader)) {
 		px_error(pxdoc, PX_RuntimeError, _("Could not read header from paradox file."));
 		pxdoc->free(pxdoc, mbh);
 		return NULL;

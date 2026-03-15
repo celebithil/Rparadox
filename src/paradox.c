@@ -2948,7 +2948,9 @@ PX_open_blob_fp(pxblob_t *pxblob, FILE *fp) {
 		return -1;
 	}
 
-	build_mb_block_list(pxblob);
+	if(build_mb_block_list(pxblob) < 0) {
+		return -1;
+	}
 	pxblob->used_datablocks = pxblob->blocklistlen-1;
 
 	return(0);
