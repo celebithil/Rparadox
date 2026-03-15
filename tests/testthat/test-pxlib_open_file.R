@@ -38,4 +38,16 @@ test_that("pxlib_open_file handles errors", {
     pxlib_open_file(db_path, encoding = 866), 
     "Argument 'encoding' must be NULL or a single character string."
   )
+
+  # Invalid password type
+  expect_error(
+    pxlib_open_file(db_path, password = 123),
+    "Argument 'password' must be a single character string."
+  )
+
+  # NA password
+  expect_error(
+    pxlib_open_file(db_path, password = NA_character_),
+    "Argument 'password' must be a single character string."
+  )
 })

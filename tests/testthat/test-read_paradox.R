@@ -98,4 +98,28 @@ test_that("read_paradox validates its arguments", {
     read_paradox(db_path, encoding = 123),
     "Argument 'encoding' must be NULL or a single character string."
   )
+
+  # NA path
+  expect_error(
+    read_paradox(NA_character_),
+    "Argument 'path' must be a single character string."
+  )
+
+  # Multi-length path
+  expect_error(
+    read_paradox(c("a.db", "b.db")),
+    "Argument 'path' must be a single character string."
+  )
+
+  # NA encoding
+  expect_error(
+    read_paradox(db_path, encoding = NA_character_),
+    "Argument 'encoding' must be NULL or a single character string."
+  )
+
+  # Invalid password type
+  expect_error(
+    read_paradox(db_path, password = 123),
+    "Argument 'password' must be a single character string."
+  )
 })
