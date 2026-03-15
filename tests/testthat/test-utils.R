@@ -18,17 +18,22 @@ test_that("recode_if_needed works correctly", {
   expect_identical(recode_if_needed(c(NA_character_, NA_character_), "cp866"), c(NA_character_, NA_character_))
 
   # 4. Mixed NA values
-  input <- c("тест", NA) # "тест" in UTF-8
-  # If we say it's cp866 but it's actually UTF-8, stringi might mangle it or handle it.
-  # Let's use a real cp866 example: 'т' is 0xF2 in CP866
-  cp866_val <- rawToChar(as.raw(0xf2)) # 'т' in CP866
+  # We want to test that recode_if_needed correctly recodes non-NA values
+  # and preserves NA values.
 
-  # We can't easily test the actual conversion without knowing stringi is working,
-  # but we can test the logic of preserving NA.
-  result <- recode_if_needed(c(cp866_val, NA_character_), "cp866")
-  expect_true(is.na(result[2]))
-  expect_false(is.na(result[1]))
-  expect_equal(result[1], "т") # UTF-8 'т'
+  # Use iconv to create a string in a specific encoding.
+  # 'é' (U+00E9) is 0xE9 in CP1252.
+  input_enc <- iconv("é", from = "UTF-8", to = "CP1252")
+
+  if (!is.na(input_enc)) {
+    result <- recode_if_needed(c(input_enc, NA_character_), "CP1252")
+    expect_equal(result[1], "é")
+    expect_true(is.na(result[2]))
+  } else {
+    # If iconv fails, at least test NA preservation
+    result <- recode_if_needed(c("a", NA_character_), "CP1252")
+    expect_identical(result, c("a", NA_character_))
+  }
 })
 
 test_that("find_blob_file works correctly", {

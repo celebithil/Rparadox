@@ -17,7 +17,18 @@ test_that("pxlib_open_file warns when BLOB file fails to attach", {
   # Create a directory named biolife.mb
   dir.create(file.path(tmp_dir, "biolife.mb"))
 
-  # Now pxlib_open_file will find "biolife.mb" but PX_set_blob_file should fail
+  # Now pxlib_open_file will find "biolife.mb" but PX_set_blob_file might fail
+  # Some systems might allow opening a directory as a file or PX_set_blob_file might
+  # fail differently. Let's try to make the MB file unreadable instead if possible,
+  # but permissions are tricky in tests.
+
+  # If the previous attempt with directory didn't work, let's try a file with no permissions.
+  unlink(file.path(tmp_dir, "biolife.mb"), recursive = TRUE)
+  writeLines("not a blob file", file.path(tmp_dir, "biolife.mb"))
+  Sys.chmod(file.path(tmp_dir, "biolife.mb"), mode = "0000")
+
+  # Now PX_set_blob_file SHOULD fail because it cannot open the file for reading.
+  # We expect a warning from the R function when the C call returns FALSE.
   expect_warning(
     pxdoc <- pxlib_open_file(file.path(tmp_dir, "biolife.db")),
     "failed to attach it"
