@@ -18,21 +18,20 @@ test_that("recode_if_needed works correctly", {
   expect_identical(recode_if_needed(c(NA_character_, NA_character_), "cp866"), c(NA_character_, NA_character_))
 
   # 4. Mixed NA values
-  # We want to test that recode_if_needed correctly recodes non-NA values
-  # and preserves NA values.
-
-  # Use iconv to create a string in a specific encoding.
+  # Using a basic ASCII-compatible test if iconv fails or behaves unexpectedly
   # 'é' (U+00E9) is 0xE9 in CP1252.
   input_enc <- iconv("é", from = "UTF-8", to = "CP1252")
 
   if (!is.na(input_enc)) {
     result <- recode_if_needed(c(input_enc, NA_character_), "CP1252")
-    expect_equal(result[1], "é")
+    # Use as.character and check equality to handle potential encoding attribute differences
+    expect_equal(as.character(result[1]), "é")
     expect_true(is.na(result[2]))
   } else {
-    # If iconv fails, at least test NA preservation
-    result <- recode_if_needed(c("a", NA_character_), "CP1252")
-    expect_identical(result, c("a", NA_character_))
+    # Fallback for environments with limited iconv
+    result <- recode_if_needed(c("test", NA_character_), "CP1252")
+    expect_equal(as.character(result[1]), "test")
+    expect_true(is.na(result[2]))
   }
 })
 
@@ -44,25 +43,32 @@ test_that("find_blob_file works correctly", {
   dir.create(tmp_dir)
   on.exit(unlink(tmp_dir, recursive = TRUE))
 
-  db_path <- file.path(tmp_dir, "test.db")
+  # Helper to normalize slashes for comparison
+  norm_slash <- function(x) {
+    if (is.null(x)) return(NULL)
+    gsub("\\\\", "/", normalizePath(x, mustWork = FALSE))
+  }
+
+  tmp_dir_norm <- norm_slash(tmp_dir)
+  db_path <- file.path(tmp_dir_norm, "test.db")
   file.create(db_path)
 
   # 1. No blob file exists
   expect_null(find_blob_file(db_path))
 
   # 2. Matching blob file exists (.mb)
-  mb_path <- file.path(tmp_dir, "test.mb")
+  mb_path <- norm_slash(file.path(tmp_dir_norm, "test.mb"))
   file.create(mb_path)
-  expect_equal(find_blob_file(db_path), mb_path)
+  expect_equal(norm_slash(find_blob_file(db_path)), mb_path)
 
   # 3. Case-insensitive match (.MB)
   unlink(mb_path)
-  MB_path <- file.path(tmp_dir, "test.MB")
+  MB_path <- norm_slash(file.path(tmp_dir_norm, "test.MB"))
   file.create(MB_path)
-  expect_equal(find_blob_file(db_path), MB_path)
+  expect_equal(norm_slash(find_blob_file(db_path)), MB_path)
 
   # 4. Multiple matches (returns one of them)
   file.create(mb_path)
-  res <- find_blob_file(db_path)
+  res <- norm_slash(find_blob_file(db_path))
   expect_true(res %in% c(mb_path, MB_path))
 })
