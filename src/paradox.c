@@ -1144,7 +1144,6 @@ PX_read_primary_index(pxdoc_t *pindex) {
 PXLIB_API int PXLIB_CALL
 PX_write_primary_index(pxdoc_t *pxdoc, pxdoc_t *pxindex) {
 	pxpindex_t *indexdata;
-	pxfield_t *pxf;
 	pxhead_t *pxh, *pih;
 	char *data;
 	int i, j;
@@ -1153,7 +1152,6 @@ PX_write_primary_index(pxdoc_t *pxdoc, pxdoc_t *pxindex) {
 	int blocknumber = 1;
 
 	pxh = pxdoc->px_head;
-	pxf = pxh->px_fields;
 	pih = pxindex->px_head;
 
 	/* Allocate memory for a complete data record. Actually it would be
@@ -1242,7 +1240,7 @@ PX_write_primary_index(pxdoc_t *pxdoc, pxdoc_t *pxindex) {
  */
 int
 px_get_record_pos_with_index(pxdoc_t *pxdoc, int recno, int *deleted, pxdatablockinfo_t *pxdbinfo) {
-	int j, numrecords, n, recsperdatablock;
+	int j, n;
 //	pxdoc_t *pindexdoc;
 	pxhead_t *pxh; //, *pxih;
 	pxpindex_t *pindex_data;
@@ -1258,15 +1256,12 @@ px_get_record_pos_with_index(pxdoc_t *pxdoc, int recno, int *deleted, pxdatabloc
 		return 0;
 	}
 
-	numrecords = 0 ;
-	recsperdatablock = (pxh->px_maxtablesize*0x400-sizeof(TDataBlock))/pxh->px_recordsize;
 	for(j=0; j<pxdoc->px_indexdatalen; j++) {
 		/* We currently just take level 1 index blocks into account.
 		 * This is only for large databases a speed disadvantage.
 		 */
 		if(pindex_data[j].level == 1) {
 			n = pindex_data[j].numrecords;
-			numrecords += n;
 			if(recno >= n) {
 				recno -= n;
 			} else {
@@ -2214,7 +2209,7 @@ int px_delete_blobs(pxdoc_t *pxdoc, int recordpos) {
 	pxf = pxh->px_fields;
 	for(i=0; i<pxh->px_numfields; i++) {
 		char *data;
-		int hsize, size, blobsize, index, mod_nr, bloboffset;
+		int hsize, size, blobsize, index, bloboffset;
 
 		if(pxf[i].px_ftype == pxfMemoBLOb ||
 		   pxf[i].px_ftype == pxfFmtMemoBLOb ||
@@ -2263,7 +2258,6 @@ int px_delete_blobs(pxdoc_t *pxdoc, int recordpos) {
 			else
 				blobsize = size;
 			index = get_long_le(&data[leader]) & 0x000000ff;
-			mod_nr = get_short_le(&data[leader+8]);
 
 			if(blobsize <= 0) {
 				continue;
@@ -2371,8 +2365,6 @@ PX_update_record(pxdoc_t *pxdoc, pxval_t **dataptr, int recno) {
 PXLIB_API int PXLIB_CALL
 PX_delete_record(pxdoc_t *pxdoc, int recno) {
 	pxhead_t *pxh;
-	pxstream_t *pxs;
-	pxblob_t *pxblob;
 	pxdatablockinfo_t tmppxdbinfo;
 	int found;
 	int deleted = 0;
@@ -2387,8 +2379,6 @@ PX_delete_record(pxdoc_t *pxdoc, int recno) {
 		return -1;
 	}
 	pxh = pxdoc->px_head;
-	pxs = pxdoc->px_stream;
-	pxblob = pxdoc->px_blob;
 
 	if((recno < 0) || (recno >= pxh->px_numrecords)) {
 		px_error(pxdoc, PX_RuntimeError, _("Record number out of range."));
@@ -2444,7 +2434,6 @@ PX_delete_record(pxdoc_t *pxdoc, int recno) {
 PXLIB_API int PXLIB_CALL
 PX_pack(pxdoc_t *pxdoc) {
 	pxhead_t *pxh;
-	pxstream_t *pxs;
 	pxpindex_t *pindex_data;
 	long blockpos, blockoutpos;
 	long recordpos, recordoutpos;
@@ -2462,7 +2451,6 @@ PX_pack(pxdoc_t *pxdoc) {
 		return -1;
 	}
 	pxh = pxdoc->px_head;
-	pxs = pxdoc->px_stream;
 	pindex_data = pxdoc->px_indexdata;
 	recsperblock = (pxh->px_maxtablesize*0x400-sizeof(TDataBlock)) / pxh->px_recordsize;
 

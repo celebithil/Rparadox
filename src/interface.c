@@ -384,24 +384,26 @@ static SEXP px_to_sexp(pxdoc_t* pxdoc, pxval_t* val, int px_ftype) {
     return R_NilValue;
   }
   
-  SEXP r_string;
-  
   switch(px_ftype) {
   // --- Text-like Types ---
   case pxfAlpha:
     if (val->value.str.val == NULL) return NA_STRING;
-    SEXP r_string = mkChar(val->value.str.val);
-    pxdoc->free(pxdoc, val->value.str.val);
-    return r_string;
+    {
+      SEXP res = mkChar(val->value.str.val);
+      pxdoc->free(pxdoc, val->value.str.val);
+      return res;
+    }
   case pxfBCD:
     if (strcmp(val->value.str.val, "-??????????????????????????.??????") == 0) {
       //Free the memory even if the value is null-like.
       pxdoc->free(pxdoc, val->value.str.val);
       return R_NilValue;
     }
-    r_string = mkChar(val->value.str.val);
-    pxdoc->free(pxdoc, val->value.str.val);
-    return r_string;
+    {
+      SEXP res = mkChar(val->value.str.val);
+      pxdoc->free(pxdoc, val->value.str.val);
+      return res;
+    }
   case pxfMemoBLOb:
   case pxfFmtMemoBLOb:
     if (val->value.str.val == NULL) return R_NilValue;
@@ -411,9 +413,9 @@ static SEXP px_to_sexp(pxdoc_t* pxdoc, pxval_t* val, int px_ftype) {
     return memo_string;
     // --- True Binary Types ---
   case pxfBytes: {
-    r_string = mkCharLen(val->value.str.val, val->value.str.len);
+    SEXP res = mkCharLen(val->value.str.val, val->value.str.len);
     pxdoc->free(pxdoc, val->value.str.val);
-    return r_string;
+    return res;
   }
   case pxfBLOb: case pxfGraphic: case pxfOLE:
     if (val->value.str.len == 0) {
