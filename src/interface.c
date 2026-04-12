@@ -204,7 +204,6 @@ SEXP pxlib_set_blob_file_c(SEXP pxdoc_extptr, SEXP blob_filename_sexp) {
   if (PX_set_blob_file(pxdoc, blob_filename) == 0) {
     return ScalarLogical(TRUE);
   } else {
-    Rf_warning("pxlib failed to set BLOB file: %s", blob_filename);
     return ScalarLogical(FALSE);
   }
 }
