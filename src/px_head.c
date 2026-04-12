@@ -31,7 +31,9 @@ pxhead_t *get_px_head(pxdoc_t *pxdoc, pxstream_t *pxs)
 	TFldInfoRec pxinfo;
 	pxfield_t *pfield;
 	char dummy[TMPBUFFSIZE], c;
-	int ret, i, j, tablenamelen;
+	int ret, i, j, tablenamelen = 0;
+
+	memset(dummy, 0, TMPBUFFSIZE);
 
 	if((pxh = (pxhead_t *) pxdoc->malloc(pxdoc, sizeof(pxhead_t), _("Allocate memory for document header."))) == NULL) {
 		px_error(pxdoc, PX_RuntimeError, _("Could not allocate memory for document header."));
@@ -40,7 +42,7 @@ pxhead_t *get_px_head(pxdoc_t *pxdoc, pxstream_t *pxs)
 	memset(pxh, 0, sizeof(pxhead_t));
 	if(pxdoc->seek(pxdoc, pxs, 0, SEEK_SET) < 0)
 		return NULL;
-	if((ret = (int)pxdoc->read(pxdoc, pxs, sizeof(TPxHeader), &pxhead)) < 0) {
+	if((ret = (int)pxdoc->read(pxdoc, pxs, sizeof(TPxHeader), &pxhead)) < (int)sizeof(TPxHeader)) {
 		px_error(pxdoc, PX_RuntimeError, _("Could not read header from paradox file."));
 		pxdoc->free(pxdoc, pxh);
 		return NULL;
@@ -126,7 +128,7 @@ pxhead_t *get_px_head(pxdoc_t *pxdoc, pxstream_t *pxs)
           (pxh->px_filetype == pxfFileTypNonIncSecIndexG) ||
 		  (pxh->px_filetype == pxfFileTypIncSecIndexG)) &&
 		  (pxh->px_fileversion >= 40)) {
-		if((ret = (int)pxdoc->read(pxdoc, pxs, sizeof(TPxDataHeader), &pxdatahead)) < 0) {
+		if((ret = (int)pxdoc->read(pxdoc, pxs, sizeof(TPxDataHeader), &pxdatahead)) < (int)sizeof(TPxDataHeader)) {
 			pxdoc->free(pxdoc, pxh);
 			return NULL;
 		}
@@ -156,7 +158,7 @@ pxhead_t *get_px_head(pxdoc_t *pxdoc, pxstream_t *pxs)
 
 	pfield = pxh->px_fields;
 	for(i=0; i<pxh->px_numfields; i++) {
-		if((ret = (int)pxdoc->read(pxdoc, pxs, sizeof(TFldInfoRec), &pxinfo)) < 0) {
+		if((ret = (int)pxdoc->read(pxdoc, pxs, sizeof(TFldInfoRec), &pxinfo)) < (int)sizeof(TFldInfoRec)) {
 			pxdoc->free(pxdoc, pxh->px_fields);
 			pxdoc->free(pxdoc, pxh);
 			return NULL;
@@ -173,7 +175,7 @@ pxhead_t *get_px_head(pxdoc_t *pxdoc, pxstream_t *pxs)
 	}
 
 	/* skip the tableNamePtr */
-	if((ret = (int)pxdoc->read(pxdoc, pxs, sizeof(int), dummy)) < 0) {
+	if((ret = (int)pxdoc->read(pxdoc, pxs, 4, dummy)) < 4) {
 		pxdoc->free(pxdoc, pxh->px_fields);
 		pxdoc->free(pxdoc, pxh);
 		return NULL;
@@ -184,7 +186,7 @@ pxhead_t *get_px_head(pxdoc_t *pxdoc, pxstream_t *pxs)
 	   pxhead.fileType == 3 || pxhead.fileType == 5 ||
 	   pxhead.fileType == 6 || pxhead.fileType == 8) {
 		for(i=0; i<pxh->px_numfields; i++) {
-			if((ret = (int)pxdoc->read(pxdoc, pxs, sizeof(int), dummy)) < 0) {
+			if((ret = (int)pxdoc->read(pxdoc, pxs, 4, dummy)) < 4) {
 				pxdoc->free(pxdoc, pxh->px_fields);
 				pxdoc->free(pxdoc, pxh);
 				return NULL;
@@ -193,12 +195,14 @@ pxhead_t *get_px_head(pxdoc_t *pxdoc, pxstream_t *pxs)
 	}
 
 	/* read the tableName */
+	if (tablenamelen > TMPBUFFSIZE - 1) tablenamelen = TMPBUFFSIZE - 1;
 	ret = (int)pxdoc->read(pxdoc, pxs, tablenamelen, dummy);
-	if(ret < 0) {
+	if(ret < (int)tablenamelen) {
 		pxdoc->free(pxdoc, pxh->px_fields);
 		pxdoc->free(pxdoc, pxh);
 		return NULL;
 	}
+	dummy[tablenamelen] = '\0';
 	pxh->px_tablename = px_strdup(pxdoc, dummy);
 
 	/* FIXME: The following will cut off field names longer than

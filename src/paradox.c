@@ -2965,6 +2965,7 @@ PX_open_blob_file(pxblob_t *pxblob, const char *filename) {
 		return -1;
 	}
 
+	if (pxblob->mb_name) pxdoc->free(pxdoc, pxblob->mb_name);
 	pxblob->mb_name = px_strdup(pxblob->pxdoc, filename);
 	pxblob->mb_stream->close = px_true;
 	return 0;
@@ -3060,10 +3061,16 @@ PX_close_blob(pxblob_t *pxblob) {
 
 	if(pxblob->mb_stream && pxblob->mb_stream->close && (pxblob->mb_stream->s.fp != NULL)){
 		fclose(pxblob->mb_stream->s.fp);
+	}
+	if (pxblob->mb_stream) {
 		pxdoc->free(pxdoc, pxblob->mb_stream);
 		pxblob->mb_stream = NULL;
+	}
+	if (pxblob->mb_name) {
 		pxdoc->free(pxdoc, pxblob->mb_name);
 		pxblob->mb_name = NULL;
+	}
+	if (pxblob->mb_head) {
 		pxdoc->free(pxdoc, pxblob->mb_head);
 		pxblob->mb_head = NULL;
 	}
