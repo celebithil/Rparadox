@@ -40,7 +40,7 @@ find_blob_file <- function(db_path) {
   if (length(matching_files) > 0) {
     # If multiple files found (e.g., data.mb and data.MB),
     # take the first one and return its full path
-    return(file.path(dir_name, matching_files[1]))
+    return(normalizePath(file.path(dir_name, matching_files[1]), winslash = "/", mustWork = FALSE))
   }
   
   # Return NULL if no matches found

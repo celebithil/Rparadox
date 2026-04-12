@@ -1,13 +1,6 @@
 #ifndef __PX_CRYPT_H
 #define __PX_CRYPT_H 1
 
-void px_encrypt_db_block(unsigned char *src, unsigned char *dest,
-                         unsigned long encryption, unsigned long blocksize,
-                         unsigned long blockno);
-
-void px_encrypt_mb_block(unsigned char *src, unsigned char *dest,
-                         unsigned long encryption, unsigned long blocksize);
-
 void px_decrypt_db_block(unsigned char *src, unsigned char *dest,
                          unsigned long encryption, unsigned long blocksize,
                          unsigned long blockno);

@@ -1,11 +1,11 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
+#include "paradox.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "px_intern.h"
-#include "paradox-gsf.h"
 #include "px_error.h"
 
 void *_px_malloc(pxdoc_t *p, size_t len, const char *caller) {

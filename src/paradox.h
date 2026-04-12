@@ -46,7 +46,6 @@ typedef SSIZE_T ssize_t;
 
 /* IO Stream types */
 #define pxfIOFile 1
-/* pxfIOGsf is defined as 2 in paradox-gsf.h */
 #define pxfIOStream 3
 
 /* Field types */
@@ -82,7 +81,6 @@ typedef SSIZE_T ssize_t;
 
 /* File modes */
 #define pxfFileRead   0x1
-#define pxfFileWrite  0x2
 
 struct px_field {
 	char *px_fname;
@@ -144,30 +142,23 @@ typedef struct px_val pxval_t;
 typedef struct mb_head mbhead_t;
 
 struct px_stream {
-	int type;        /* set to pxfIOFile | pxfIOGsf | pxfIOStream*/
-	int mode;        /* set to pxfFileRead | pxfFileWrite */
+	int type;        /* set to pxfIOFile | pxfIOStream*/
+	int mode;        /* set to pxfFileRead */
 	int close;       /* set to true if stream must be closed */
 	union {
 		FILE *fp;
 		void *stream;
-#if HAVE_GSF
-		GsfInput *gsfin;
-		GsfOutput *gsfout;
-#endif
 	} s;
 	ssize_t (*read)(pxdoc_t *p, pxstream_t *stream, size_t numbytes, void *buffer);
 	int (*seek)(pxdoc_t *p, pxstream_t *stream, long offset, int whence);
 	long (*tell)(pxdoc_t *p, pxstream_t *stream);
-	ssize_t (*write)(pxdoc_t *p, pxstream_t *stream, size_t numbytes, void *buffer);
 };
 
 struct px_doc {
 	/* database file */
-//	FILE *px_fp;       /* File pointer of file */
 	pxstream_t *px_stream; /* input stream to read file from */
 	char *px_name;     /* Name of file */
-	int px_close_fp;   /* set to true if file pointer must be closed, deprecated */
-//	int px_filemode;   /* set to pxfFileRead|pxfFileWrite */
+
 	pxhead_t *px_head; /* Pointer to header of file */
 	void *px_data;     /* Pointer to data of file (used in prim. index for
 						* index data, used in db files for an self build
@@ -182,13 +173,7 @@ struct px_doc {
 	/* blob file */
 	pxblob_t *px_blob;
 
-	/* record accounting */
-	int last_position; /* Position (starting at 0) where last record was put. */
-
 	int warnings;      /* Turn of/off output of warnings */
-
-	/* output function */
-	ssize_t (*writeproc)(pxdoc_t *p, void *data, size_t size);
 
 	/* error handler function */
 	void (*errorhandler)(pxdoc_t *p, int level, const char* msg, void *data);
@@ -206,15 +191,8 @@ struct px_doc {
 	ssize_t (*read)(pxdoc_t *p, pxstream_t *stream, size_t numbytes, void *buffer);
 	int (*seek)(pxdoc_t *p, pxstream_t *stream, long offset, int whence);
 	long (*tell)(pxdoc_t *p, pxstream_t *stream);
-	ssize_t (*write)(pxdoc_t *p, pxstream_t *stream, size_t numbytes, void *buffer);
-
-	char *targetencoding;
-	char *inputencoding;
-	Riconv_t out_iconvcd;   /* Encoding of written data */
-	Riconv_t in_iconvcd;    /* Encoding of read data */
 
 	long curblocknr;      /* Number of current block in cache (0-n) */
-	int curblockdirty;    /* Set to px_true if the block needs to be written */
 	unsigned char *curblock;       /* Data of block in read cache */
 };
 
@@ -240,15 +218,10 @@ struct px_blob {
 	pxstream_t *mb_stream; /* input stream to read file from */
 	mbhead_t *mb_head; /* Pointer to header of file */
 	int used_datablocks;
-	int subblockoffset;
-	int subblockinneroffset;
-	int subblockfree;
-	int subblockblobcount;
 	/* input stream functions */
 	ssize_t (*read)(pxblob_t *p, pxstream_t *stream, size_t numbytes, void *buffer);
 	int (*seek)(pxblob_t *p, pxstream_t *stream, long offset, int whence);
 	long (*tell)(pxblob_t *p, pxstream_t *stream);
-	ssize_t (*write)(pxblob_t *p, pxstream_t *stream, size_t numbytes, void *buffer);
 	/* Cache for the last read block */
 	pxblockcache_t blockcache;
 	/* Index of all blocks in the blob file */
@@ -337,17 +310,8 @@ PX_open_fp(pxdoc_t *pxdoc, FILE *fp);
 PXLIB_API int PXLIB_CALL
 PX_open_file(pxdoc_t *pxdoc, const char *filename);
 
-PXLIB_API int PXLIB_CALL
-PX_create_file(pxdoc_t *pxdoc, pxfield_t *pxf, int numfields, const char *filename, int type);
-
-PXLIB_API int PXLIB_CALL
-PX_create_fp(pxdoc_t *pxdoc, pxfield_t *pxf, int numfields, FILE *fp, int type);
-
 PXLIB_API void* PXLIB_CALL
 PX_get_opaque(pxdoc_t *pxdoc);
-
-PXLIB_API int PXLIB_CALL
-PX_write_primary_index(pxdoc_t *pxdoc, pxdoc_t *pxindex);
 
 PXLIB_API int PXLIB_CALL
 PX_read_primary_index(pxdoc_t *pindex);
@@ -361,21 +325,6 @@ PX_get_record(pxdoc_t *pxdoc, int recno, char *data);
 PXLIB_API char * PXLIB_CALL
 PX_get_record2(pxdoc_t *pxdoc, int recno, char *data, int *deleted, pxdatablockinfo_t *pxdbinfo);
 
-PXLIB_API int PXLIB_CALL
-PX_put_recordn(pxdoc_t *pxdoc, char *data, int recpos);
-
-PXLIB_API int PXLIB_CALL
-PX_put_record(pxdoc_t *pxdoc, char *data);
-
-PXLIB_API int PXLIB_CALL
-PX_insert_record(pxdoc_t *pxdoc, pxval_t **dataptr);
-
-PXLIB_API int PXLIB_CALL
-PX_update_record(pxdoc_t *pxdoc, pxval_t **dataptr, int recno);
-
-PXLIB_API int PXLIB_CALL
-PX_delete_record(pxdoc_t *pxdoc, int recno);
-
 PXLIB_API pxval_t ** PXLIB_CALL
 PX_retrieve_record(pxdoc_t *pxdoc, int recno);
 
@@ -384,9 +333,6 @@ PX_close(pxdoc_t *pxdoc);
 
 PXLIB_API void PXLIB_CALL
 PX_delete(pxdoc_t *pxdoc);
-
-PXLIB_API int PXLIB_CALL
-PX_pack(pxdoc_t *pxdoc);
 
 PXLIB_API pxfield_t* PXLIB_CALL
 PX_get_fields(pxdoc_t *pxdoc);
@@ -404,31 +350,13 @@ PXLIB_API int PXLIB_CALL
 PX_get_recordsize(pxdoc_t *pxdoc);
 
 PXLIB_API int PXLIB_CALL
-PX_set_parameter(pxdoc_t *pxdoc, const char *name, const char *value);
-
-PXLIB_API int PXLIB_CALL
 PX_get_parameter(pxdoc_t *pxdoc, const char *name, char **value);
-
-PXLIB_API int PXLIB_CALL
-PX_set_value(pxdoc_t *pxdoc, const char *name, float value);
 
 PXLIB_API int PXLIB_CALL
 PX_get_value(pxdoc_t *pxdoc, const char *name, float *value);
 
 PXLIB_API int PXLIB_CALL
-PX_set_targetencoding(pxdoc_t *pxdoc, const char *encoding);
-
-PXLIB_API int PXLIB_CALL
-PX_set_inputencoding(pxdoc_t *pxdoc, const char *encoding);
-
-PXLIB_API int PXLIB_CALL
-PX_set_tablename(pxdoc_t *pxdoc, const char *tablename);
-
-PXLIB_API int PXLIB_CALL
 PX_set_blob_file(pxdoc_t *pxdoc, const char *filename);
-
-PXLIB_API int PXLIB_CALL
-PX_set_blob_fp(pxdoc_t *pxdoc, FILE *fp);
 
 PXLIB_API int PXLIB_CALL
 PX_has_blob_file(pxdoc_t *pxdoc);
@@ -441,12 +369,6 @@ PX_open_blob_fp(pxblob_t *pxdoc, FILE *fp);
 
 PXLIB_API int PXLIB_CALL
 PX_open_blob_file(pxblob_t *pxdoc, const char *filename);
-
-PXLIB_API int PXLIB_CALL
-PX_create_blob_fp(pxblob_t *pxdoc, FILE *fp);
-
-PXLIB_API int PXLIB_CALL
-PX_create_blob_file(pxblob_t *pxblob, const char *filename);
 
 PXLIB_API void PXLIB_CALL
 PX_close_blob(pxblob_t *pxdoc);
@@ -491,31 +413,6 @@ PX_get_data_blob(pxdoc_t *pxdoc, const char *data, int len, int *mod, int *blobs
 
 PXLIB_API int PXLIB_CALL
 PX_get_data_graphic(pxdoc_t *pxdoc, const char *data, int len, int *mod, int *blobsize, char **value);
-
-/* Funktion to add data to a record */
-PXLIB_API void PXLIB_CALL
-PX_put_data_alpha(pxdoc_t *pxdoc, char *data, int len, char *value);
-
-PXLIB_API void PXLIB_CALL
-PX_put_data_bytes(pxdoc_t *pxdoc, char *data, int len, char *value);
-
-PXLIB_API void PXLIB_CALL
-PX_put_data_double(pxdoc_t *pxdoc, char *data, int len, double value);
-
-PXLIB_API void PXLIB_CALL
-PX_put_data_long(pxdoc_t *pxdoc, char *data, int len, int value);
-
-PXLIB_API void PXLIB_CALL
-PX_put_data_short(pxdoc_t *pxdoc, char *data, int len, short int value);
-
-PXLIB_API void PXLIB_CALL
-PX_put_data_byte(pxdoc_t *pxdoc, char *data, int len, char value);
-
-PXLIB_API void PXLIB_CALL
-PX_put_data_bcd(pxdoc_t *pxdoc, char *data, int len, char *value);
-
-PXLIB_API int PXLIB_CALL
-PX_put_data_blob(pxdoc_t *pxdoc, char *data, int len, char *value, int valuelen);
 
 PXLIB_API void PXLIB_CALL
 PX_SdnToGregorian(long int sdn, int *pYear, int *pMonth, int *pDay);

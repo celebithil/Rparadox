@@ -1,3 +1,43 @@
+# Rparadox 0.3.0
+
+## Major changes
+* Complete rewrite of the C backend: removed all write functionality,
+  making the library read-only. Removed dead write-code
+  including `PX_create_file`, `PX_put_record`, `PX_update_record`,
+  `PX_delete_record`, `PX_pack`, and all encoding write functions.
+* Removed GSF (GNOME Structured File) and memprof support.
+* Removed `paradox-gsf.h`, `paradox-mp.h`, `px_encode.c/h`,
+  `px_memprof.c`.
+
+## Bug fixes
+* Fixed uninitialized memory access in `get_px_head()` that caused a
+  segfault with `-O2 + LTO` when opening encrypted files.
+* Added missing `#include "paradox.h"` in 5 `.c` files (`paradox.c`,
+  `px_io.c`, `px_head.c`, `px_misc.c`, `px_memory.c`).
+* Fixed buffer overflow in `px_passwd_checksum()` for passwords > 255 chars.
+* `find_blob_file()` now normalises paths with forward slashes to ensure
+  consistent `expect_equal()` comparisons on Windows UCRT.
+* Fixed 238 Valgrind errors (uninitialised reads) in `get_px_head()` and
+  `_px_get_data_blob()`: replaced `ret < 0` checks with exact-size
+  comparisons (`ret != sizeof(...)`) after `read()` calls to detect
+  short/truncated reads from corrupted files.
+
+## Documentation
+* README.Rmd: removed all runnable code examples, now links to vignette.
+* Vignette: now contains all usage examples previously in README (magick
+  plot, encrypted files, encoding override, advanced workflow).
+
+## New tests
+* `test-encryption.R`: Full encryption workflow tests.
+* `test-find_blob_file.R`: BLOB file auto-detection tests.
+* `test-recode_if_needed.R`: Encoding conversion tests.
+* `test-px_close_file.R`: Error handling for file close operations.
+* `test-corrupted_file.R`: Handling of non-Paradox files.
+* `test-missing_blob.R`: Behavior when BLOB file is missing.
+* `test-password_edge_cases.R`: Password validation edge cases.
+* `test-encoding_edge_cases.R`: Invalid encoding handling.
+* `test-path_edge_cases.R`: Path validation edge cases.
+
 # Rparadox 0.2.2
 
 ## Bug fixes

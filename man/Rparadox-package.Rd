@@ -4,9 +4,9 @@
 \name{Rparadox-package}
 \alias{Rparadox}
 \alias{Rparadox-package}
-\title{Rparadox: Read Paradox Database Files into R}
+\title{Rparadox: Read Paradox Database Files}
 \description{
-Provides a simple and efficient way to read data from Paradox database files (.db) directly into R as modern 'tibble' data frames. It uses the underlying 'pxlib' C library, to handle the low-level file format details and provides a clean, user-friendly R interface.
+Provides a simple and efficient way to read data from Paradox database files (.db) directly into R as modern 'tibble' data frames. It uses the underlying 'pxlib' C library to handle the low-level file format details and provides a clean, user-friendly R interface.
 }
 \seealso{
 Useful links:
@@ -19,6 +19,11 @@ Useful links:
 }
 \author{
 \strong{Maintainer}: Daniil Popov \email{popov.daniil@gmail.com}
+
+Authors:
+\itemize{
+  \item Daniil Popov \email{popov.daniil@gmail.com}
+}
 
 }
 \keyword{internal}

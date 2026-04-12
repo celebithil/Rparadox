@@ -160,3 +160,54 @@ test_that("pxlib_metadata validates input correctly", {
   expect_error(pxlib_metadata("not_a_pxdoc"), "class 'pxdoc_t'")
   expect_error(pxlib_metadata(NULL), "class 'pxdoc_t'")
 })
+
+# --- Encrypted file metadata tests ---
+
+test_that("pxlib_metadata works with encrypted country.db", {
+  enc_path <- system.file("extdata", "country_encrypted.db", package = "Rparadox")
+  ref_path <- test_path("ref_country.rds")
+
+  px_doc <- pxlib_open_file(enc_path, password = "rparadox")
+  on.exit(pxlib_close_file(px_doc), add = TRUE)
+
+  metadata <- pxlib_metadata(px_doc)
+
+  expect_type(metadata, "list")
+  expect_named(metadata, c("num_records", "num_fields", "fields", "encoding"))
+
+  expect_equal(metadata$num_records, 18)
+  expect_equal(metadata$num_fields, 5)
+  expect_equal(metadata$fields$name, c("Name", "Capital", "Continent", "Area", "Population"))
+  expect_equal(metadata$fields$type, c("Alpha", "Alpha", "Alpha", "Number", "Number"))
+})
+
+test_that("pxlib_metadata works with encrypted TypSammlung.db", {
+  enc_path <- system.file("extdata", "TypSammlung_encrypted.DB", package = "Rparadox")
+
+  px_doc <- pxlib_open_file(enc_path, password = "rparadox")
+  on.exit(pxlib_close_file(px_doc), add = TRUE)
+
+  metadata <- pxlib_metadata(px_doc)
+
+  expect_type(metadata, "list")
+  expect_named(metadata, c("num_records", "num_fields", "fields", "encoding"))
+
+  expect_equal(metadata$num_records, 5)
+  expect_equal(metadata$num_fields, 14)
+
+  expected_types <- c(
+    "Alpha", "Number", "Currency", "Short", "Long",
+    "BCD", "Date", "Time", "Timestamp", "Memo",
+    "Logical", "Autoincrement", "Binary", "Bytes"
+  )
+  expect_equal(metadata$fields$type, expected_types)
+})
+
+test_that("pxlib_metadata on encrypted file fails without password", {
+  enc_path <- system.file("extdata", "country_encrypted.db", package = "Rparadox")
+
+  expect_error(
+    pxlib_open_file(enc_path),
+    "password protected"
+  )
+})
