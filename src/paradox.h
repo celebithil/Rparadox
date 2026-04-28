@@ -337,23 +337,19 @@ PX_open_fp(pxdoc_t *pxdoc, FILE *fp);
 PXLIB_API int PXLIB_CALL
 PX_open_file(pxdoc_t *pxdoc, const char *filename);
 
-PXLIB_API int PXLIB_CALL
-PX_create_file(pxdoc_t *pxdoc, pxfield_t *pxf, int numfields, const char *filename, int type);
 
-PXLIB_API int PXLIB_CALL
-PX_create_fp(pxdoc_t *pxdoc, pxfield_t *pxf, int numfields, FILE *fp, int type);
+
+
 
 PXLIB_API void* PXLIB_CALL
 PX_get_opaque(pxdoc_t *pxdoc);
 
-PXLIB_API int PXLIB_CALL
-PX_write_primary_index(pxdoc_t *pxdoc, pxdoc_t *pxindex);
+
 
 PXLIB_API int PXLIB_CALL
 PX_read_primary_index(pxdoc_t *pindex);
 
-PXLIB_API int PXLIB_CALL
-PX_add_primary_index(pxdoc_t *pxdoc, pxdoc_t *pindex);
+
 
 PXLIB_API char * PXLIB_CALL
 PX_get_record(pxdoc_t *pxdoc, int recno, char *data);
@@ -361,20 +357,15 @@ PX_get_record(pxdoc_t *pxdoc, int recno, char *data);
 PXLIB_API char * PXLIB_CALL
 PX_get_record2(pxdoc_t *pxdoc, int recno, char *data, int *deleted, pxdatablockinfo_t *pxdbinfo);
 
-PXLIB_API int PXLIB_CALL
-PX_put_recordn(pxdoc_t *pxdoc, char *data, int recpos);
 
-PXLIB_API int PXLIB_CALL
-PX_put_record(pxdoc_t *pxdoc, char *data);
 
-PXLIB_API int PXLIB_CALL
-PX_insert_record(pxdoc_t *pxdoc, pxval_t **dataptr);
 
-PXLIB_API int PXLIB_CALL
-PX_update_record(pxdoc_t *pxdoc, pxval_t **dataptr, int recno);
 
-PXLIB_API int PXLIB_CALL
-PX_delete_record(pxdoc_t *pxdoc, int recno);
+
+
+
+
+
 
 PXLIB_API pxval_t ** PXLIB_CALL
 PX_retrieve_record(pxdoc_t *pxdoc, int recno);
@@ -385,8 +376,7 @@ PX_close(pxdoc_t *pxdoc);
 PXLIB_API void PXLIB_CALL
 PX_delete(pxdoc_t *pxdoc);
 
-PXLIB_API int PXLIB_CALL
-PX_pack(pxdoc_t *pxdoc);
+
 
 PXLIB_API pxfield_t* PXLIB_CALL
 PX_get_fields(pxdoc_t *pxdoc);
@@ -409,8 +399,7 @@ PX_set_parameter(pxdoc_t *pxdoc, const char *name, const char *value);
 PXLIB_API int PXLIB_CALL
 PX_get_parameter(pxdoc_t *pxdoc, const char *name, char **value);
 
-PXLIB_API int PXLIB_CALL
-PX_set_value(pxdoc_t *pxdoc, const char *name, float value);
+
 
 PXLIB_API int PXLIB_CALL
 PX_get_value(pxdoc_t *pxdoc, const char *name, float *value);
@@ -442,11 +431,9 @@ PX_open_blob_fp(pxblob_t *pxdoc, FILE *fp);
 PXLIB_API int PXLIB_CALL
 PX_open_blob_file(pxblob_t *pxdoc, const char *filename);
 
-PXLIB_API int PXLIB_CALL
-PX_create_blob_fp(pxblob_t *pxdoc, FILE *fp);
 
-PXLIB_API int PXLIB_CALL
-PX_create_blob_file(pxblob_t *pxblob, const char *filename);
+
+
 
 PXLIB_API void PXLIB_CALL
 PX_close_blob(pxblob_t *pxdoc);
@@ -460,8 +447,7 @@ PX_read_blobdata(pxblob_t *pxblob, const char *data, int len, int *mod, int *blo
 PXLIB_API char* PXLIB_CALL
 PX_read_graphicdata(pxblob_t *pxblob, const char *data, int len, int *mod, int *blobsize);
 
-PXLIB_API char* PXLIB_CALL
-PX_read_grahicdata(pxblob_t *pxblob, const char *data, int len, int *mod, int *blobsize);
+
 
 /* Data conversion functions */
 /* Functions to read data from a record */
@@ -493,29 +479,21 @@ PXLIB_API int PXLIB_CALL
 PX_get_data_graphic(pxdoc_t *pxdoc, const char *data, int len, int *mod, int *blobsize, char **value);
 
 /* Funktion to add data to a record */
-PXLIB_API void PXLIB_CALL
-PX_put_data_alpha(pxdoc_t *pxdoc, char *data, int len, char *value);
 
-PXLIB_API void PXLIB_CALL
-PX_put_data_bytes(pxdoc_t *pxdoc, char *data, int len, char *value);
 
-PXLIB_API void PXLIB_CALL
-PX_put_data_double(pxdoc_t *pxdoc, char *data, int len, double value);
 
-PXLIB_API void PXLIB_CALL
-PX_put_data_long(pxdoc_t *pxdoc, char *data, int len, int value);
 
-PXLIB_API void PXLIB_CALL
-PX_put_data_short(pxdoc_t *pxdoc, char *data, int len, short int value);
 
-PXLIB_API void PXLIB_CALL
-PX_put_data_byte(pxdoc_t *pxdoc, char *data, int len, char value);
 
-PXLIB_API void PXLIB_CALL
-PX_put_data_bcd(pxdoc_t *pxdoc, char *data, int len, char *value);
 
-PXLIB_API int PXLIB_CALL
-PX_put_data_blob(pxdoc_t *pxdoc, char *data, int len, char *value, int valuelen);
+
+
+
+
+
+
+
+
 
 PXLIB_API void PXLIB_CALL
 PX_SdnToGregorian(long int sdn, int *pYear, int *pMonth, int *pDay);
@@ -523,14 +501,11 @@ PX_SdnToGregorian(long int sdn, int *pYear, int *pMonth, int *pDay);
 PXLIB_API long int PXLIB_CALL
 PX_GregorianToSdn(int year, int month, int day);
 
-PXLIB_API pxval_t* PXLIB_CALL
-PX_make_time(pxdoc_t *pxdoc, int hour, int minute, int second);
 
-PXLIB_API pxval_t* PXLIB_CALL
-PX_make_date(pxdoc_t *pxdoc, int year, int month, int day);
 
-PXLIB_API pxval_t* PXLIB_CALL
-PX_make_timestamp(pxdoc_t *pxdoc, int year, int month, int day, int hour, int minute, int second);
+
+
+
 
 PXLIB_API char * PXLIB_CALL
 PX_timestamp2string(pxdoc_t *pxdoc, double value, const char *format);

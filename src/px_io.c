@@ -51,7 +51,7 @@ pxstream_t *px_stream_new_gsf(pxdoc_t *pxdoc, int mode, int close, GsfInput *gsf
 	pxs->read = px_gsfread;
 	pxs->seek = px_gsfseek;
 	pxs->tell = px_gsftell;
-	pxs->write = px_gsfwrite;
+
 	return(pxs);
 }
 /* }}} */
@@ -75,7 +75,7 @@ pxstream_t *px_stream_new_file(pxdoc_t *pxdoc, int mode, int close, FILE *fp) {
 	pxs->read = px_fread;
 	pxs->seek = px_fseek;
 	pxs->tell = px_ftell;
-	pxs->write = px_fwrite;
+
 	return(pxs);
 }
 /* }}} */
@@ -116,23 +116,7 @@ ssize_t px_read(pxdoc_t *p, pxstream_t *dummy, size_t len, void *buffer) {
 		}
 		if(p->curblocknr != blocknr) {
 //			fprintf(stderr, "Read block %d into cache.\n", blocknr);
-			if(p->curblockdirty == px_true) {
-				pxs->seek(p, pxs, pxh->px_headersize + ((p->curblocknr-1)*blocksize), SEEK_SET);
-				if(pxh->px_encryption != 0) {
-	//				fprintf(stderr, "Encrypting block %d\n", p->curblocknr);
-					px_encrypt_db_block(p->curblock, p->curblock, pxh->px_encryption, blocksize, p->curblocknr);
-				}
-				pxs->write(p, pxs, blocksize, p->curblock);
-			}
-			memset(p->curblock, 0, blocksize);
-			pxs->seek(p, pxs, pxh->px_headersize + ((blocknr-1)*blocksize), SEEK_SET);
-			pxs->read(p, pxs, blocksize, p->curblock);
-			p->curblocknr = blocknr;
-			if(pxh->px_encryption != 0) {
-//				fprintf(stderr, "Decrypting block %d\n", blocknr);
-				px_decrypt_db_block(p->curblock, p->curblock, pxh->px_encryption, blocksize, blocknr);
-			}
-		} else {
+			} else {
 //			fprintf(stderr, "block %d already in cache.\n", blocknr);
 		}
 		memcpy(buffer, p->curblock+blockpos, len);
@@ -159,96 +143,9 @@ long px_tell(pxdoc_t *p, pxstream_t *dummy) {
 }
 /* }}} */
 
-/* px_write() {{{
- */
-ssize_t px_write(pxdoc_t *p, pxstream_t *dummy, size_t len, void *buffer) {
-	size_t ret;
-	long blocknr, blockpos, curpos, blocksize;
-	pxhead_t *pxh;
-	pxstream_t *pxs;
 
-	pxh = p->px_head;
-	pxs = p->px_stream;
-	curpos = pxs->tell(p, pxs);
-	if(pxh != NULL && curpos >= pxh->px_headersize) {
-		blocksize = pxh->px_maxtablesize * 0x400;
-		blocknr = ((curpos - pxh->px_headersize) / blocksize) + 1;
-		blockpos = (curpos - pxh->px_headersize) % blocksize; 
-//		fprintf(stderr, "writing to block %d:%d\n", blocknr, blockpos);
-		if(blockpos+len > blocksize) {
-			px_error(p, PX_RuntimeError, _("Trying to write data to file exceeds block boundary: %d + %d > %d."), blockpos, len, blocksize);
-			return(0);
-		}
-		if(p->curblock == NULL) {
-//			fprintf(stderr, "Allocate memory for cache block.\n");
-			p->curblock = p->malloc(p, blocksize, _("Allocate memory for block cache."));
-			if(p->curblock == NULL) {
-				return(0);
-			}
-		}
-		/* Write last accessed block to disk if the write operation modifies
-		 * a new block.
-		 * No need to write, if this is the first time a write operation
-		 * modifies a block. Blocks will be written to the file, when
-		 * a new block is accessed.
-		 */
-		if(p->curblocknr != blocknr && p->curblocknr != 0) {
-//			fprintf(stderr, "Write block %d from cache into file.\n", p->curblocknr);
-			if(p->curblockdirty == px_true) {
-				pxs->seek(p, pxs, pxh->px_headersize + ((p->curblocknr-1)*blocksize), SEEK_SET);
-				if(pxh->px_encryption != 0) {
-	//				fprintf(stderr, "Encrypting block %d\n", p->curblocknr);
-					px_encrypt_db_block(p->curblock, p->curblock, pxh->px_encryption, blocksize, p->curblocknr);
-				}
-				pxs->write(p, pxs, blocksize, p->curblock);
-			}
-			memset(p->curblock, 0, blocksize);
-			/* Read the new block, just in case it has been in the file already */
-			pxs->seek(p, pxs, pxh->px_headersize + ((blocknr-1)*blocksize), SEEK_SET);
-			pxs->read(p, pxs, blocksize, p->curblock);
-			if(pxh->px_encryption != 0) {
-				px_decrypt_db_block(p->curblock, p->curblock, pxh->px_encryption, blocksize, blocknr);
-			}
-		} else {
-//			fprintf(stderr, "block %d already in cache.\n", blocknr);
-		}
-		p->curblocknr = blocknr;
-		p->curblockdirty = px_true;
-		memcpy(p->curblock+blockpos, buffer, len);
-		pxs->seek(p, pxs, curpos + (long)len, SEEK_SET);
-		ret = len;
-	} else {
-		ret = pxs->write(p, pxs, len, buffer);
-	}
-	return(ret);
-}
-/* }}} */
 
-/* px_flush() {{{
- */
-int px_flush(pxdoc_t *p, pxstream_t *dummy) {
-	long blocksize;
-	pxhead_t *pxh;
-	pxstream_t *pxs;
 
-	pxh = p->px_head;
-	pxs = p->px_stream;
-	if(pxh != NULL) {
-		blocksize = pxh->px_maxtablesize * 0x400;
-		if(p->curblockdirty) {
-//			fprintf(stderr, "Write block %d from cache into file.\n", p->curblocknr);
-			pxs->seek(p, pxs, pxh->px_headersize + ((p->curblocknr-1)*blocksize), SEEK_SET);
-			if(pxh->px_encryption != 0) {
-//				fprintf(stderr, "Encrypting block %d\n", p->curblocknr);
-				px_encrypt_db_block(p->curblock, p->curblock, pxh->px_encryption, blocksize, p->curblocknr);
-			}
-			pxs->write(p, pxs, blocksize, p->curblock);
-			p->curblockdirty = px_false;
-		}
-	}
-	return(0);
-}
-/* }}} */
 
 /* Generic file access functions for .mb */
 /* px_mb_read() {{{
@@ -362,12 +259,7 @@ long px_mb_tell(pxblob_t *p, pxstream_t *dummy) {
 }
 /* }}} */
 
-/* px_mb_write() {{{
- */
-ssize_t px_mb_write(pxblob_t *p, pxstream_t *dummy, size_t len, void *buffer) {
-	return(p->mb_stream->write(p->pxdoc, p->mb_stream, len, buffer));
-}
-/* }}} */
+
 
 /* regular file pointer */
 /* px_fread() {{{
@@ -391,12 +283,7 @@ long px_ftell(pxdoc_t *p, pxstream_t *stream) {
 }
 /* }}} */
 
-/* px_fwrite() {{{
- */
-ssize_t px_fwrite(pxdoc_t *p, pxstream_t *stream, size_t len, void *buffer) {
-	return(fwrite(buffer, 1, len, stream->s.fp));
-}
-/* }}} */
+
 
 /* gsf */
 #if HAVE_GSF
@@ -428,12 +315,7 @@ long px_gsftell(pxdoc_t *p, pxstream_t *stream) {
 }
 /* }}} */
 
-/* px_gsfwrite() {{{
- */
-ssize_t px_gsfwrite(pxdoc_t *p, pxstream_t *stream, size_t len, void *buffer) {
-	return(gsf_output_write(stream->s.gsfout, len, buffer));
-}
-/* }}} */
+
 #endif
 
 /*
