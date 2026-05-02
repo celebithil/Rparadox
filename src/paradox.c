@@ -623,9 +623,7 @@ PX_set_parameter(pxdoc_t *pxdoc, const char *name, const char *value) {
 
 		pxdoc->px_head->px_tablename = px_strdup(pxdoc, value);
 		if(pxdoc->px_stream->mode & pxfFileWrite) {
-			if(put_px_head(pxdoc, pxdoc->px_head, pxdoc->px_stream) < 0) {
-				return -1;
-			}
+
 		} else {
 			px_error(pxdoc, PX_Warning, _("File is not writable. Setting '%s' has no effect."), name);
 			return -1;
@@ -633,9 +631,7 @@ PX_set_parameter(pxdoc_t *pxdoc, const char *name, const char *value) {
 	} else if(strcmp(name, "password") == 0) {
 		pxdoc->px_head->px_encryption = px_passwd_checksum(value);
 		if(pxdoc->px_stream->mode & pxfFileWrite) {
-			if(put_px_head(pxdoc, pxdoc->px_head, pxdoc->px_stream) < 0) {
-				return -1;
-			}
+
 		} else {
 			px_error(pxdoc, PX_Warning, _("File is not writable. Setting '%s' has no effect."), name);
 			return -1;
@@ -653,6 +649,7 @@ PX_set_parameter(pxdoc_t *pxdoc, const char *name, const char *value) {
 		}
 
 		if(sscanf(value, "CP%d", &codepage)) {
+
 		}
 	} else if(strcmp(name, "inputencoding") == 0) {
 		if(pxdoc->inputencoding)
@@ -836,7 +833,7 @@ PX_read_primary_index(pxdoc_t *pindex) {
  */
 int
 px_get_record_pos_with_index(pxdoc_t *pxdoc, int recno, int *deleted, pxdatablockinfo_t *pxdbinfo) {
-	int j, numrecords, n, recsperdatablock;
+	int j, numrecords, n;
 //	pxdoc_t *pindexdoc;
 	pxhead_t *pxh; //, *pxih;
 	pxpindex_t *pindex_data;
@@ -853,7 +850,7 @@ px_get_record_pos_with_index(pxdoc_t *pxdoc, int recno, int *deleted, pxdatabloc
 	}
 
 	numrecords = 0 ;
-	recsperdatablock = (pxh->px_maxtablesize*0x400-sizeof(TDataBlock))/pxh->px_recordsize;
+
 	for(j=0; j<pxdoc->px_indexdatalen; j++) {
 		/* We currently just take level 1 index blocks into account.
 		 * This is only for large databases a speed disadvantage.
@@ -1002,7 +999,7 @@ px_get_record_pos(pxdoc_t *pxdoc, int recno, int *deleted, pxdatablockinfo_t *px
  */
 int
 px_find_slot_with_index(pxdoc_t *pxdoc, pxdatablockinfo_t *pxdbinfo) {
-	int j, recsperdatablock;
+	int j;
 	int reccount=0;
 	pxhead_t *pxh; //, *pxih;
 	pxpindex_t *pindex_data;
@@ -1015,14 +1012,14 @@ px_find_slot_with_index(pxdoc_t *pxdoc, pxdatablockinfo_t *pxdbinfo) {
 		return -1;
 	}
 
-	recsperdatablock = (pxh->px_maxtablesize*0x400-sizeof(TDataBlock))/pxh->px_recordsize;
+
 	for(j=0; j<pxdoc->px_indexdatalen; j++) {
 		/* We currently just take level 1 index blocks into account.
 		 * This is only for large databases a speed disadvantage.
 		 */
 		if(pindex_data[j].level == 1) {
 			/* Is there a free slot in the block?j */
-			if(pindex_data[j].numrecords < recsperdatablock) {
+			if(pindex_data[j].numrecords < ((pxh->px_maxtablesize*0x400-sizeof(TDataBlock))/pxh->px_recordsize)) {
 				int blocksize, ret;
 				TDataBlock datablock;
 
@@ -1056,10 +1053,10 @@ px_find_slot_with_index(pxdoc_t *pxdoc, pxdatablockinfo_t *pxdbinfo) {
 				return reccount+pindex_data[j].numrecords+1;
 			} else {
 				/* Just count the number of records found so far. It doesn't
-				 * make a difference if we add recsperdatablock or
+				 * make a difference if we add ((pxh->px_maxtablesize*0x400-sizeof(TDataBlock))/pxh->px_recordsize) or
 				 * pindex_data[j].numrecords because they equal anyway.
 				 */
-				reccount += recsperdatablock;
+				reccount += ((pxh->px_maxtablesize*0x400-sizeof(TDataBlock))/pxh->px_recordsize);
 			}
 		}
 	}
@@ -1649,6 +1646,7 @@ PX_set_targetencoding(pxdoc_t *pxdoc, const char *encoding) {
 		return -1;
 	}
 	if(sscanf(encoding, "CP%d", &codepage)) {
+
 	}
 	return 0;
 }
@@ -1708,9 +1706,7 @@ PX_set_tablename(pxdoc_t *pxdoc, const char *tablename) {
 		pxdoc->free(pxdoc, pxdoc->px_head->px_tablename);
 
 	pxdoc->px_head->px_tablename = px_strdup(pxdoc, tablename);
-	if(put_px_head(pxdoc, pxdoc->px_head, pxdoc->px_stream) < 0) {
-		return -1;
-	}
+
 	return 0;
 }
 /* }}} */
@@ -1844,7 +1840,7 @@ PX_open_blob_fp(pxblob_t *pxblob, FILE *fp) {
 	pxblob->read = px_mb_read;
 	pxblob->seek = px_mb_seek;
 	pxblob->tell = px_mb_tell;
-	pxblob->write = px_mb_write;
+
 
 	if((pxblob->mb_head = get_mb_head(pxblob, pxs)) == NULL) {
 		px_error(pxdoc, PX_RuntimeError, _("Unable to get header of blob file."));
@@ -1948,13 +1944,10 @@ PX_set_blob_file(pxdoc_t *pxdoc, const char *filename) {
 		return -1;
 	}
 
-	/* If the paradox database was opend for reading the blob will be too. */
-
-		if(0 > PX_open_blob_file(pxblob, filename)) {
-			px_error(pxdoc, PX_RuntimeError, _("Could not open blob file."));
-			return -1;
-		}
-
+	if(0 > PX_open_blob_file(pxblob, filename)) {
+		px_error(pxdoc, PX_RuntimeError, _("Could not open blob file."));
+		return -1;
+	}
 
 	pxdoc->px_blob = pxblob;
 
@@ -1990,13 +1983,10 @@ PX_set_blob_fp(pxdoc_t *pxdoc, FILE *fp) {
 		return -1;
 	}
 
-	/* If the paradox database was opend for reading the blob will be too. */
-
-		if(0 > PX_open_blob_fp(pxblob, fp)) {
-			px_error(pxdoc, PX_RuntimeError, _("Could not open blob file."));
-			return -1;
-		}
-
+	if(0 > PX_open_blob_fp(pxblob, fp)) {
+		px_error(pxdoc, PX_RuntimeError, _("Could not open blob file."));
+		return -1;
+	}
 
 	pxdoc->px_blob = pxblob;
 

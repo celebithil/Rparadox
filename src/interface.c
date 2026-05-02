@@ -381,17 +381,18 @@ SEXP pxlib_get_data_c(SEXP pxdoc_extptr) {
  * @return A scalar R SEXP representing the value. Returns `R_NilValue` for NULLs.
  */
 static SEXP px_to_sexp(pxdoc_t* pxdoc, pxval_t* val, int px_ftype) {
+  SEXP r_string;
   if (val->isnull) {
     return R_NilValue;
   }
   
-  SEXP r_string;
+
   
   switch(px_ftype) {
   // --- Text-like Types ---
   case pxfAlpha:
     if (val->value.str.val == NULL) return NA_STRING;
-    SEXP r_string = mkChar(val->value.str.val);
+    r_string = mkChar(val->value.str.val);
     pxdoc->free(pxdoc, val->value.str.val);
     return r_string;
   case pxfBCD:

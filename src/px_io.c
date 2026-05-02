@@ -116,7 +116,14 @@ ssize_t px_read(pxdoc_t *p, pxstream_t *dummy, size_t len, void *buffer) {
 		}
 		if(p->curblocknr != blocknr) {
 //			fprintf(stderr, "Read block %d into cache.\n", blocknr);
-			} else {
+			pxs->seek(p, pxs, pxh->px_headersize + ((blocknr-1)*blocksize), SEEK_SET);
+			pxs->read(p, pxs, blocksize, p->curblock);
+			p->curblocknr = blocknr;
+			if(pxh->px_encryption != 0) {
+//				fprintf(stderr, "Decrypting block %d\n", blocknr);
+				px_decrypt_db_block(p->curblock, p->curblock, pxh->px_encryption, blocksize, blocknr);
+			}
+		} else {
 //			fprintf(stderr, "block %d already in cache.\n", blocknr);
 		}
 		memcpy(buffer, p->curblock+blockpos, len);
