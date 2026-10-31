@@ -328,6 +328,19 @@ PX_get_record2(pxdoc_t *pxdoc, int recno, char *data, int *deleted, pxdatablocki
 PXLIB_API pxval_t ** PXLIB_CALL
 PX_retrieve_record(pxdoc_t *pxdoc, int recno);
 
+PXLIB_API int PXLIB_CALL
+PX_retrieve_records(pxdoc_t *pxdoc, int start, int count, pxval_t **records);
+
+PXLIB_API int PXLIB_CALL
+PX_retrieve_records_ex(pxdoc_t *pxdoc, int start, int count, pxval_t **records,
+	int *failed_record);
+
+PXLIB_API void PXLIB_CALL
+PX_free_record(pxdoc_t *pxdoc, pxval_t **record);
+
+PXLIB_API void PXLIB_CALL
+PX_free_records(pxdoc_t *pxdoc, pxval_t *records, int count);
+
 PXLIB_API void PXLIB_CALL
 PX_close(pxdoc_t *pxdoc);
 

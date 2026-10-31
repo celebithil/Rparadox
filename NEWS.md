@@ -1,3 +1,52 @@
+# Rparadox 0.3.1
+
+## Performance
+* Ported the mmap-based fast read path from upstream pxlib: regular
+  unencrypted `.db`/`.mb` files are memory-mapped and read directly
+  (`px_fread`/`px_fseek`/`px_ftell` operate on the mapping), and
+  `px_read()` bypasses the block-cache layer for mapped unencrypted
+  files. Encrypted files keep the decryption path. Streams are
+  unmapped and released through the new `px_stream_free()`, and a
+  seek beyond the mapping falls back to stdio for files that grow.
+
+## C library sync (upstream pxlib `c7dfd55`, branch `fix/compiler-warnings-and-safety`)
+* Primary-index lookups now use a cumulative-offset lookup table with
+  binary search (`px_get_record_pos_with_index`), replacing the linear
+  scan; also fixes a latent `deleted = 0` vs `*deleted = 0` assignment
+  bug and validates the `TDataBlock` read against the exact size.
+* New bulk C API: `PX_retrieve_records()`, `PX_retrieve_records_ex()`,
+  `PX_free_record()`, `PX_free_records()` (single row-major allocation
+  per batch). `PX_retrieve_record()` is now a wrapper around the shared
+  internal implementation; behaviour of existing calls is unchanged.
+* `PX_close_blob()` now frees `mb_name`/`mb_head` even when the blob
+  stream was opened without the close flag (leak fix), and failed opens
+  release the stream (with unmap) before closing the `FILE*`, so the
+  unmap never seeks on a closed file.
+* The whole primary-index allocation (including the lookup area) is
+  zeroed, avoiding uninitialised reads when the block chain ends before
+  `px_fileblocks`. The workflow is Valgrind-clean.
+* `gregor.c` includes `paradox.h` and carries `PXLIB_API`/`PXLIB_CALL`
+  qualifiers; the bundled pxlib version constant is bumped to 0.6.11.
+
+## Bug fixes
+* Fixed sign extension in `get_long_be()`: negative Long field values
+  (stored with the high bit set) were decoded as `value + 2^32`
+  (e.g. -1 was returned as 4294967295). The function now explicitly
+  sign-extends the 32-bit big-endian word, matching the original pxlib
+  semantics that `PX_get_data_long()` relies on.
+* The rewrite uses a `uint32_t` intermediate, which also removes the
+  undefined behaviour of left-shifting into the sign bit of a 32-bit
+  `long`. Mirrors the corresponding upstream pxlib fix. Validated
+  against the previous implementation: identical results for all 16-bit
+  inputs and 2,000,000 random 32-bit inputs.
+
+## New tests
+* `test-long-fields.R`: regression tests for Long value decoding
+  (boundary values ±2147483647, ±1, 0, NULL/NA handling, metadata).
+  Uses a minimal Paradox 3.0 table generated at test time
+  (`helper-long-fixture.R`), since the bundled corpora contain only one
+  negative Long value (-40 in `TypSammlung.DB`).
+
 # Rparadox 0.3.0
 
 ## Major changes

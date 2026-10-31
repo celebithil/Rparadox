@@ -8,6 +8,8 @@ export(read_paradox)
 importFrom(blob,as_blob)
 importFrom(hms,as_hms)
 importFrom(stringi,stri_encode)
-importFrom(tibble,as_tibble)
-importFrom(tibble,tibble)
+importFrom(tibble,
+  as_tibble,
+  tibble
+)
 useDynLib(Rparadox, .registration = TRUE)

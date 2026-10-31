@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
 #include <sys/types.h>
 
 #include "px_misc.h"
@@ -110,18 +111,24 @@ double get_double_le(const char *cp)
  */
 long get_long_be(const char *cp)
 {
-  unsigned long ret = 0;
+  uint32_t raw;
   unsigned char *source = (unsigned char *)cp;
-  
+
   if(NULL == cp)
     return 0;
-  
-  ret = ((unsigned long)(*source++) << 24);
-  ret |= ((unsigned long)(*source++) << 16);
-  ret |= ((unsigned long)(*source++) << 8);
-  ret |= *source++;
-  
-  return (long)ret;
+
+  raw = ((uint32_t)source[0] << 24) |
+        ((uint32_t)source[1] << 16) |
+        ((uint32_t)source[2] << 8) |
+        (uint32_t)source[3];
+
+  /* Preserve the signed interpretation of the 32-bit value, as the
+   * original int-based implementation did. PX_get_data_long() relies on
+   * this sign extension: a zero-extending variant shifts negative Long
+   * values by 2^32. */
+  if(raw & UINT32_C(0x80000000))
+    return (long)((int64_t)raw - (INT64_C(1) << 32));
+  return (long)raw;
 }
 
 /*

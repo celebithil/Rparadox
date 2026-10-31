@@ -20,7 +20,7 @@ extern "C" {
 #define PXLIB_DOTTED_VERSION "@PXLIB_DOTTED_VERSION@"
 #define PXLIB_MAJOR_VERSION 0
 #define PXLIB_MINOR_VERSION 6
-#define PXLIB_MICRO_VERSION 9
+#define PXLIB_MICRO_VERSION 11
 
 #ifdef __cplusplus
 }
