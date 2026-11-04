@@ -14,7 +14,6 @@ typedef unsigned char byte;
 typedef struct { char c[2]; } integer;
 typedef struct { char c[4]; } longint;
 typedef struct { char c[2]; } word;
-typedef char *pchar;
 typedef struct { char c[4]; } pointer;
 
 #include "fileformat.h"

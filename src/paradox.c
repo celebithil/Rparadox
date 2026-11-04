@@ -1009,27 +1009,6 @@ px_get_record_pos(pxdoc_t *pxdoc, int recno, int *deleted, pxdatablockinfo_t *px
 /* }}} */
 
 
-/* px_list_index() {{{
- * Reads all data blocks until a block with a free slot is found.
- * This function doesn't use a primary index and is therefore far
- * from being efficient for large files.
- * Returns 1 if free slot could be found, otherwise 0, and -1
- * in case of error.
- */
-void
-px_list_index(pxdoc_t *pxdoc) {
-	pxpindex_t *pindex;
-	int i;
-	pindex = pxdoc->px_indexdata;
-	Rprintf("    | blocknr | numrecs \n");
-	Rprintf("------------------------\n");
-	for(i=0; i<pxdoc->px_indexdatalen; i++) {
-	  Rprintf("%3d | %7d | %7d\n", i, pindex[i].blocknumber, pindex[i].numrecords);
-	}
-}
-/* }}} */
-
-
 /* PX_get_record() {{{
  * Reads one record from a Paradox file. This function can be used
  * for different types of Paradox files. This function will not
@@ -1627,91 +1606,6 @@ PX_get_recordsize(pxdoc_t *pxdoc) {
 
 /******* Function to access Blob files *******/
 
-/* build_mb_block_list() {{{
- * Build a primary index.
- */
-static int build_mb_block_list(pxblob_t *pxblob) {
-	pxdoc_t *pxdoc;
-	pxstream_t *pxs;
-	int i;
-	size_t filesize;
-	int numblocks;
-	pxmbblockinfo_t *blocklist;
-	TMbBlockHeader3 mbblockhead;
-
-	pxdoc = pxblob->pxdoc;
-	pxs = pxblob->mb_stream;
-
-	if(pxblob->seek(pxblob, pxs, 0, SEEK_END) < 0) {
-		px_error(pxdoc, PX_RuntimeError, _("Could not go to end of blob file."));
-		return -1;
-	}
-	filesize = pxblob->tell(pxblob, pxs);
-	if(filesize & 0x00000fff) {
-		px_error(pxdoc, PX_RuntimeError, _("Size of blob file is not multiple of 4kB."));
-		return -1;
-	}
-
-	if(pxblob->seek(pxblob, pxs, 0, SEEK_SET) < 0) {
-		px_error(pxdoc, PX_RuntimeError, _("Could not go to start of blob file."));
-		return -1;
-	}
-
-	numblocks = (int)filesize >> 12;
-	if(NULL == (blocklist = pxdoc->malloc(pxdoc, numblocks*sizeof(pxmbblockinfo_t), _("Allocate memory for block info in blob file.")))) {
-		return -1;
-	}
-	i = 0;
-	for(i=0; i<numblocks; i++) {
-		if(pxblob->seek(pxblob, pxs, i*4096, SEEK_SET) < 0) {
-			px_error(pxdoc, PX_RuntimeError, _("Could not go to start of block in blob file."));
-			pxdoc->free(pxdoc, blocklist);
-			return -1;
-		}
-
-		if(pxblob->read(pxblob, pxs, sizeof(TMbBlockHeader3), &mbblockhead) < 0) {
-			px_error(pxdoc, PX_RuntimeError, _("Could not read header of block in blob file."));
-			pxdoc->free(pxdoc, blocklist);
-			return -1;
-		}
-		blocklist[i].number = i;
-		blocklist[i].type = mbblockhead.type;
-		blocklist[i].numblocks = (int) (get_short_le((char *) &mbblockhead.numBlocks));
-//		fprintf(stderr, "Block %d is of type %d\n", i, blocklist[i].type);
-		if(blocklist[i].type == 3) {
-			int j;
-			blocklist[i].numblobs = 0;
-			blocklist[i].allocspace = 0;
-
-			for(j=0; j<64; j++) {
-				TMbBlockHeader3Table mbbhtab;
-				if(pxblob->read(pxblob, pxs, sizeof(TMbBlockHeader3Table), &mbbhtab) < 0) {
-					px_error(pxdoc, PX_RuntimeError, _("Could not read blob pointer."));
-					pxdoc->free(pxdoc, blocklist);
-					return -1;
-				}
-				if(mbbhtab.offset != 0) {
-//					fprintf(stderr, "  %d. Found blob with %d x 16 bytes\n", j, mbbhtab.length);
-					blocklist[i].numblobs++;
-					blocklist[i].allocspace += mbbhtab.length;
-				}
-			}
-//			fprintf(stderr, "  Block of type 3 had %d blobs using %d from 235 x 16 bytes\n", blocklist[i].numblobs, blocklist[i].allocspace);
-		} else {
-			blocklist[i].numblobs = 1;
-			blocklist[i].allocspace = 0;
-		}
-
-	}
-	if(NULL != pxblob->blocklist) {
-		pxdoc->free(pxdoc, pxblob->blocklist);
-	}
-	pxblob->blocklist = blocklist;
-	pxblob->blocklistlen = numblocks;
-	return 0;
-}
-/* }}} */
-
 /* PX_new_blob() {{{
  * Create a new blob document
  */
@@ -1761,9 +1655,6 @@ PX_open_blob_fp(pxblob_t *pxblob, FILE *fp) {
 		pxblob->mb_stream = NULL;
 		return -1;
 	}
-
-	build_mb_block_list(pxblob);
-	pxblob->used_datablocks = pxblob->blocklistlen-1;
 
 	return(0);
 }
@@ -1829,8 +1720,6 @@ PX_delete_blob(pxblob_t *pxblob) {
 	PX_close_blob(pxblob);
 	if(pxblob->blockcache.data)
 		pxblob->pxdoc->free(pxblob->pxdoc, pxblob->blockcache.data);
-	if(pxblob->blocklist)
-		pxblob->pxdoc->free(pxblob->pxdoc, pxblob->blocklist);
 	pxblob->pxdoc->free(pxblob->pxdoc, pxblob);
 }
 /* }}} */
@@ -2463,7 +2352,7 @@ PX_get_data_graphic(pxdoc_t *pxdoc, const char *data, int len, int *mod, int *bl
 
 /* PX_make_time() {{{
  * Creates a value representing the internal paradox format of a time.
- * The return value can written with PX_put_data_long() into the record.
+ * The return value holds a long suitable for a Time field of a record.
  */
 PXLIB_API pxval_t* PXLIB_CALL
 PX_make_time(pxdoc_t *pxdoc, int hour, int minute, int second) {
@@ -2476,7 +2365,7 @@ PX_make_time(pxdoc_t *pxdoc, int hour, int minute, int second) {
 
 /* PX_make_date() {{{
  * Creates a value representing the internal paradox format of a date.
- * The return value can written with PX_put_data_long() into the record.
+ * The return value holds a long suitable for a Date field of a record.
  */
 PXLIB_API pxval_t* PXLIB_CALL
 PX_make_date(pxdoc_t *pxdoc, int year, int month, int day) {
@@ -2494,7 +2383,7 @@ PX_make_date(pxdoc_t *pxdoc, int year, int month, int day) {
 
 /* PX_make_timestamp() {{{
  * Creates a value representing the internal paradox format of a timestamp.
- * The return value can written with PX_put_data_double() into the record.
+ * The return value holds a double suitable for a Timestamp field of a record.
  */
 PXLIB_API pxval_t* PXLIB_CALL
 PX_make_timestamp(pxdoc_t *pxdoc, int year, int month, int day, int hour, int minute, int second) {

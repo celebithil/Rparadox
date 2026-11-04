@@ -1,3 +1,45 @@
+# Rparadox 0.3.2
+
+## Internal cleanup
+
+Dead-code audit of the bundled pxlib (no behaviour changes for the R
+interface):
+
+* Removed nine unused internal helpers from `src/px_misc.c` and their
+  prototypes from `src/px_misc.h`: `get_short_le_s()`, `get_double_le()`,
+  `copy_fill()`, `copy_crimp()`, `px_get_date()`, `px_date_year()`,
+  `px_date_month()`, `px_date_day()` and `hex_dump()`, plus the
+  `localtime_r` WIN32 shim that only served them. Note that the 0.3.1
+  signedness fix in `get_short_le_s()` was ported for upstream parity
+  although the function never had a caller.
+* Removed the write-era .MB block list: `build_mb_block_list()` scanned
+  every 4 kB block of each blob file (including a 64-entry table walk
+  per type-3 block) at open time, but its output (`blocklist`,
+  `blocklistlen`, `used_datablocks`) was never read by the read path —
+  `_px_get_data_blob()` navigates the file from the record offsets
+  directly. Removed the function, its call in `PX_open_blob_fp()`, the
+  never-read fields of `px_blob` and the `pxmbblockinfo_t` type.
+* Removed the unreachable debug dump `px_list_index()` (no callers, no
+  prototype).
+* Removed the dangling `PX_read_grahicdata()` prototype (typo'd
+  upstream name; no such function exists) and the unused `pchar`
+  typedef.
+* Updated three comments that still referenced the write API
+  (`PX_put_data_*`) removed in 0.3.0.
+* Removed unused Suggests: usethis.
+
+## New tests
+
+* `test-blob-files.R`: explicit tests for the .MB blob/memo read path
+  touched by the cleanup — memo and graphic round-trips through a
+  multi-block blob file (biolife), memo NULL handling in type-3 blocks
+  (TypSammlung), and state isolation across sequential opens.
+
+Upstream pxlib API surface kept deliberately (parity with
+steinm/pxlib): the bulk record API, the date/time string builders with
+`gregor.c`, the .PX primary-index support and the raw blob readers
+remain unused by the R layer but stay in sync with upstream.
+
 # Rparadox 0.3.1
 
 ## Performance

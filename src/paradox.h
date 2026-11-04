@@ -203,30 +203,17 @@ struct px_blockcache {
 };
 typedef struct px_blockcache pxblockcache_t;
 
-struct px_mbblockinfo {
-	int number;
-	char type;
-	char numblobs;
-	int numblocks;
-	int allocspace;
-};
-typedef struct px_mbblockinfo pxmbblockinfo_t;
-
 struct px_blob {
 	char *mb_name;
 	pxdoc_t *pxdoc;
 	pxstream_t *mb_stream; /* input stream to read file from */
 	mbhead_t *mb_head; /* Pointer to header of file */
-	int used_datablocks;
 	/* input stream functions */
 	ssize_t (*read)(pxblob_t *p, pxstream_t *stream, size_t numbytes, void *buffer);
 	int (*seek)(pxblob_t *p, pxstream_t *stream, long offset, int whence);
 	long (*tell)(pxblob_t *p, pxstream_t *stream);
 	/* Cache for the last read block */
 	pxblockcache_t blockcache;
-	/* Index of all blocks in the blob file */
-	pxmbblockinfo_t *blocklist;
-	int blocklistlen;
 };
 
 struct mb_head {
@@ -394,9 +381,6 @@ PX_read_blobdata(pxblob_t *pxblob, const char *data, int len, int *mod, int *blo
 
 PXLIB_API char* PXLIB_CALL
 PX_read_graphicdata(pxblob_t *pxblob, const char *data, int len, int *mod, int *blobsize);
-
-PXLIB_API char* PXLIB_CALL
-PX_read_grahicdata(pxblob_t *pxblob, const char *data, int len, int *mod, int *blobsize);
 
 /* Data conversion functions */
 /* Functions to read data from a record */
